@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>ee-Class 智慧題目轉換系統 | AI 題庫一鍵匯入 ee-class / TronClass</title>
-  <meta name="description" content="將 ChatGPT、Claude、Gemini 產生的選擇題與是非題快速轉化為 ee-Class / TronClass 標準 CSV 與 GIFT 匯入格式，支援視覺化編輯與一鍵匯出。">
+  <title>ee-Class 智慧題目轉換系統 Pro 2026 | AI 題庫 & 考題檔一鍵匯入 ee-class / TronClass</title>
+  <meta name="description" content="將 Word (.docx)、Markdown 或 ChatGPT、Claude、Gemini 產生的 5 大題型考題快速轉化為 ee-Class / TronClass 標準 27 欄 CSV (支援 UTF-8 BOM 與 Big5 副本) 及 GIFT 格式。">
   <link rel="stylesheet" href="style.css">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%233b82f6'><path d='M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5'/></svg>">
 </head>
@@ -21,23 +21,32 @@
         </div>
         <div class="brand-titles">
           <h1>ee-Class 智慧題目轉換系統 <span class="brand-badge">Pro 2026</span></h1>
-          <p class="brand-sub">AI 選擇題與是非題 &rarr; ee-Class (CSV / GIFT) 一鍵轉換匯入</p>
+          <p class="brand-sub">考題檔 (.docx / .md / .txt) &rarr; ee-Class (UTF-8 / Big5 / GIFT) 5 大題型一鍵轉換</p>
         </div>
       </div>
 
-      <!-- 即時數據徽章 -->
+      <!-- 即時數據徽章 (支援 5 大題型) -->
       <div class="header-stats">
         <div class="stat-pill stat-strict" id="stat-strict-badge" title="嚴格防呆檢核模式啟用中：全方位檢核，阻擋錯誤題目匯出，確保 100% 零瑕疵">
-          <span class="status-dot-pulse"></span> 🛡️ 嚴格防呆模式
+          <span class="status-dot-pulse"></span> 🛡️ 嚴格防呆
         </div>
         <div class="stat-pill stat-total" title="總題數">
           總題數: <strong id="stat-total">0</strong>
         </div>
+        <div class="stat-pill stat-tf" title="是非題數">
+          是非: <strong id="stat-tf">0</strong>
+        </div>
         <div class="stat-pill stat-single" title="單選題數">
           單選: <strong id="stat-single">0</strong>
         </div>
-        <div class="stat-pill stat-tf" title="是非題數">
-          是非: <strong id="stat-tf">0</strong>
+        <div class="stat-pill stat-multi" title="複選題數">
+          複選: <strong id="stat-multi">0</strong>
+        </div>
+        <div class="stat-pill stat-fill" title="填充題數">
+          填充: <strong id="stat-fill">0</strong>
+        </div>
+        <div class="stat-pill stat-essay" title="問答題數">
+          問答: <strong id="stat-essay">0</strong>
         </div>
         <div class="stat-pill stat-warning" id="stat-warning" style="display: none;">
           ⚠️ 待修正: <strong>0</strong>
@@ -56,14 +65,21 @@
           <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
           </svg>
-          匯出 ee-class CSV
+          📥 匯出 ee-class CSV
+        </button>
+
+        <button id="btn-export-big5" class="btn btn-amber" title="匯出 Big5 副本 CSV (CP950 編碼, 附符號等義修復, 舊測驗系統專用)">
+          <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+          </svg>
+          📑 匯出 Big5 副本
         </button>
 
         <button id="btn-export-gift" class="btn btn-purple" title="匯出 GIFT 格式 (.gift)">
           <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v13m0-13V6a2 2 0 112 2h-2zm0 0V5.5A2.5 2.5 0 109.5 8H12zm-7 4h14M5 12a2 2 0 110-4h14a2 2 0 110 4M5 12v7a2 2 0 002 2h10a2 2 0 002-2v-7"></path>
           </svg>
-          匯出 GIFT 格式
+          🎁 匯出 GIFT
         </button>
       </div>
     </div>
@@ -79,7 +95,7 @@
             <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
             </svg>
-            1. 貼上 AI 題目與解析
+            1. 考題檔抽取與貼上解析
           </button>
         </li>
         <li>
@@ -87,7 +103,7 @@
             <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
             </svg>
-            2. 題目預覽與編輯
+            2. 題目預覽與編輯 (5 大題型)
             <span class="tab-badge" id="tab-badge-count">0</span>
           </button>
         </li>
@@ -96,7 +112,7 @@
             <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path>
             </svg>
-            3. 匯入格式規範手冊
+            3. 匯入格式規範手冊 (27 欄)
           </button>
         </li>
         <li>
@@ -104,7 +120,7 @@
             <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"></path>
             </svg>
-            4. AI 出題提示詞 (Prompt 助手)
+            4. AI 出題與轉題庫提示詞 (Tools_QB 升級版)
           </button>
         </li>
         <li>
@@ -123,19 +139,50 @@
       <div class="parser-layout">
         <!-- 左側主輸入區塊 -->
         <div class="glass-panel input-card">
+          <!-- 檔案拖曳上傳區 (Tools_QB 核心升級) -->
+          <div class="upload-dropzone" id="upload-dropzone">
+            <input type="file" id="file-uploader" style="display:none;" accept=".docx,.txt,.md,.csv,.tsv">
+            <div class="dropzone-inner">
+              <div class="dropzone-icon">
+                <svg width="24" height="24" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
+                </svg>
+              </div>
+              <div class="dropzone-title">📁 拖曳考題檔至此，或點擊選取檔案上傳</div>
+              <div class="dropzone-desc">免手動複製貼上！自動由 Word 檔直接抽取段落純文字並進行智慧解析</div>
+              <div class="dropzone-formats">
+                <span class="format-pill">Word (.docx)</span>
+                <span class="format-pill">純文字 (.txt)</span>
+                <span class="format-pill">Markdown (.md)</span>
+                <span class="format-pill">CSV (.csv)</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- 全域題庫類別設定列 -->
+          <div class="global-category-bar">
+            <div class="category-input-group">
+              <label for="global-category-input">🏷️ 全域題庫類別 / 所屬章節：</label>
+              <input type="text" id="global-category-input" placeholder="例如：單元一：環境微生物學基礎（選填，可一鍵套用）">
+            </div>
+            <button id="btn-apply-global-cat" class="btn btn-secondary btn-sm" title="將此類別套用到目前所有題目">
+              套用到全部題目
+            </button>
+          </div>
+
           <div class="card-title-row">
             <h2>
               <svg width="20" height="20" fill="none" stroke="#60a5fa" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path>
               </svg>
-              請在此貼上 ChatGPT / Claude / Gemini 輸出的原始題庫文字
+              原始題目文字編輯區 (支援 5 大題型：是非、單選、複選、填充、問答)
             </h2>
             <div class="input-helpers">
               <button id="btn-goto-manual" class="btn btn-secondary btn-sm" title="查閱完整匯入格式規範手冊與常見錯誤對照">
-                📖 格式規範手冊
+                📖 規範手冊
               </button>
-              <button id="btn-load-sample" class="btn btn-secondary btn-sm" title="載入環境微生物學範例題">
-                📚 載入範例題
+              <button id="btn-load-sample" class="btn btn-secondary btn-sm" title="載入 5 大題型綜合範例題庫">
+                📚 載入 5 大題型範例
               </button>
               <button id="btn-clear-input" class="btn btn-secondary btn-sm" title="清空文字">
                 🧹 清空
@@ -144,22 +191,31 @@
           </div>
 
           <div class="textarea-container">
-            <textarea id="raw-quiz-input" class="quiz-textarea" placeholder="直接複製 AI 生成的題目貼在這裡即可！
-支援格式示例：
+            <textarea id="raw-quiz-input" class="quiz-textarea" placeholder="直接在此貼上 AI 生成的題目或 Word 檔文字！
+支援是非題、單選題、複選題、填充題與問答題：
 
-一、單選題
-1. 下列何者最能區分原核細胞與真核細胞？
-(A) 是否具有真正由核膜包覆的細胞核
-(B) 是否能進行能量代謝
-(C) 是否含有DNA
-(D) 是否可存在於水環境中
-答案：A
-解析：原核細胞沒有真正由核膜包覆的細胞核；真核細胞則有。
-
-二、是非題
-1. 細菌與古菌皆屬原核生物。( )
+一、是非題
+1. 細菌屬於原核生物。
 答案：O
-解析：兩者皆為原核生物，但細胞壁與細胞膜組成不同。"></textarea>
+解析：細菌無成形細胞核。
+
+二、單選題
+1. 下列何者能行光合作用？
+(A) 藍綠菌 (B) 酵母菌 (C) 原蟲 (D) 病毒
+答案：A
+
+三、複選題
+1. 下列哪些為主要溫室氣體？
+(A) CO2 (B) N2 (C) CH4 (D) N2O
+答案：A, C, D
+
+四、填充題
+1. 大氣中造成暖化的三大氣體為二氧化碳、[*甲烷*]與[*氧化亞氮*]。
+答案：甲烷, 氧化亞氮
+
+五、問答題
+1. 請簡述急救五步驟。
+答案：沖脫泡蓋送"></textarea>
           </div>
 
           <div class="textarea-footer">
@@ -181,11 +237,11 @@
           <div class="strict-banner-box">
             <div class="strict-badge">
               <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path></svg>
-              嚴格檢核防呆模式
+              Tools_QB 架構 5 大題型全面支援
             </div>
-            <p>當匯入題目<strong>缺少答案</strong>、<strong>選項少於2個</strong>或<strong>格式錯誤</strong>時，系統將自動阻擋匯出並精準標出問題行，確保 ee-Class 匯入 100% 成功！</p>
+            <p>已整合 <strong>是非、單選、複選、填充、問答</strong> 5 大題型！支援直接從 <strong>Word (.docx)</strong> 考題檔拖曳匯入，並可一併輸出 <strong>UTF-8 BOM</strong> 與 <strong>Big5 副本</strong>！</p>
             <button id="btn-guide-to-manual" class="btn btn-outline btn-sm btn-block" style="width: 100%; margin-top: 0.6rem;">
-              📚 查看「正確 vs 常見錯誤」對照手冊
+              📚 查看 27 欄格式規範手冊
             </button>
           </div>
 
@@ -193,42 +249,40 @@
             <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
             </svg>
-            支援的 AI 格式標準
+            題型格式速查
           </h3>
 
-          <div class="format-example-box"><strong>✨ 選擇題標準結構：</strong>
-1. 題幹文字...
-(A) 選項1
-(B) 選項2
-(C) 選項3
-(D) 選項4
-答案：B
-解析：說明原因...</div>
+          <div class="format-example-box"><strong>✨ 複選題範例 (Type 3)：</strong>
+1. 下列哪些屬於原核生物？
+(A) 細菌 (B) 酵母菌 (C) 古菌 (D) 藻類
+答案：(A)(C) 或 A, C
+解析：細菌與古菌皆為原核生物。</div>
 
-          <div class="format-example-box"><strong>✨ 是非題標準結構：</strong>
-1. 某某敘述正確與否？
-答案：O (或 是 / 正確 / True)
-解析：詳細解釋...
+          <div class="format-example-box"><strong>✨ 填充題範例 (Type 4)：</strong>
+1. 台灣最高峰為[*玉山*]，海拔高度約[*3952*]公尺。
+答案：玉山, 3952
+（題幹中以 [*空格答案*] 內嵌，系統自動拆解）</div>
 
-或直接寫：
-2. (X) 藍綠菌是真核生物。</div>
+          <div class="format-example-box"><strong>✨ 問答題範例 (Type 5)：</strong>
+1. 請簡述急救五步驟？
+答案：沖脫泡蓋送。</div>
 
           <ul class="guide-feature-list">
             <li>
               <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
-              自動處理繁簡、全形半形英數字
+              支援 Word (.docx) 直接拖曳免打字
             </li>
             <li>
               <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
-              自動辨識章節標題 (單選題 / 是非題)
+              自動處理章節與題目類別 (Category)
             </li>
             <li>
               <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
-              自動剔除 Markdown 星號粗體
+              雙編碼：UTF-8 BOM (新版) + Big5 (舊版)
             </li>
             <li>
               <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
-              自動檢核答案與選項合規性
+              自動嚴格檢核答案與格式合規性
             </li>
           </ul>
         </aside>
@@ -241,8 +295,11 @@
       <div class="glass-panel editor-toolbar">
         <div class="filter-group">
           <button class="filter-pill active" data-filter="all">全部題目</button>
-          <button class="filter-pill" data-filter="single">僅單選題</button>
-          <button class="filter-pill" data-filter="tf">僅是非題</button>
+          <button class="filter-pill" data-filter="tf">是非題</button>
+          <button class="filter-pill" data-filter="single">單選題</button>
+          <button class="filter-pill" data-filter="multi">複選題</button>
+          <button class="filter-pill" data-filter="fill">填充題</button>
+          <button class="filter-pill" data-filter="essay">問答題</button>
           <button class="filter-pill" data-filter="warning">待修正 (未設答案)</button>
         </div>
 
@@ -250,7 +307,7 @@
           <svg class="search-icon" width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
           </svg>
-          <input type="text" id="search-questions-input" class="search-input" placeholder="搜尋題幹、選項或解析關鍵字...">
+          <input type="text" id="search-questions-input" class="search-input" placeholder="搜尋題幹、選項、解析或類別關鍵字...">
         </div>
 
         <div class="editor-actions">
@@ -272,7 +329,7 @@
       <div id="empty-state" class="glass-panel empty-state" style="display: none;">
         <div class="empty-state-icon">📝</div>
         <h3>目前沒有符合條件的題目</h3>
-        <p>請至「貼上 AI 題目」分頁貼上題目內容，或點擊上方「新增一道題」進行編輯。</p>
+        <p>請至「考題檔抽取與貼上解析」分頁貼上題目內容或拖入 Word 考題檔，或點擊上方「新增一道題」進行編輯。</p>
       </div>
     </section>
 
@@ -282,310 +339,133 @@
         <!-- 頂部總覽橫幅 -->
         <div class="glass-panel manual-banner">
           <div class="manual-banner-content">
-            <span class="manual-tag">官方標準 Version 4 規範</span>
-            <h2>📖 ee-Class 題庫匯入格式規範與防呆手冊</h2>
-            <p>為避免教師匯入 ee-Class / TronClass 時發生題目錯位、選項遺漏、無法自動批改等問題，本系統實施<strong>「嚴格檢核防呆機制」</strong>。當題目缺少答案、選項數量少於 2 個或格式不符時，系統將嚴格阻擋匯出並精準指出問題題號，確保所下載的題庫檔案 100% 完美匯入！</p>
+            <span class="manual-tag">官方標準 Version 4 規範 (27 欄逗號分隔)</span>
+            <h2>📖 ee-Class / TronClass 題庫 27 欄匯入格式規範手冊</h2>
+            <p>本系統全面相容 <strong>TronClass / ee-Class 官方 Version 4 題庫規範</strong>。第一行為 <code>version: 4</code> 搭配 26 個空逗號，整份檔案嚴格維持 27 欄逗號分隔標準結構，並實施嚴格防呆阻擋，確保匯入 100% 成功！</p>
           </div>
           <div class="manual-banner-stats">
             <div class="rule-stat-item">
               <span class="rule-icon">🛡️</span>
               <div>
-                <strong>嚴格阻擋檢核</strong>
-                <span>缺答案/缺選項即時阻擋</span>
+                <strong>5 大題型全面支援</strong>
+                <span>是非 / 單選 / 複選 / 填充 / 問答</span>
               </div>
             </div>
             <div class="rule-stat-item">
-              <span class="rule-icon">🎯</span>
+              <span class="rule-icon">📑</span>
               <div>
-                <strong>100% 格式吻合</strong>
-                <span>相容 ee-Class V4 範本</span>
+                <strong>雙編碼雙輸出</strong>
+                <span>UTF-8 BOM (新) + Big5 (舊)</span>
               </div>
             </div>
           </div>
         </div>
 
-        <!-- 針對「沒有資料」問題的官方 CSV 規範解析 -->
-        <div class="glass-panel" style="padding: 1.25rem 1.75rem; border-left: 4px solid var(--accent-rose); background: linear-gradient(135deg, rgba(244, 63, 94, 0.08) 0%, rgba(17, 24, 39, 0.8) 100%);">
-          <div style="display: flex; align-items: center; gap: 0.6rem; margin-bottom: 0.6rem;">
-            <span style="font-size: 1.4rem;">🚨</span>
-            <h3 style="font-size: 1.05rem; font-weight: 800; color: #fb7185;">ee-Class 匯入解析：為什麼平台會顯示「已選擇 0 題、沒有資料」？</h3>
-          </div>
-          <p style="font-size: 0.88rem; color: var(--text-muted); line-height: 1.6; margin-bottom: 0.5rem;">
-            ee-Class 平台的 CSV 匯入引擎具備嚴格的<strong>「逗號切分與欄位數檢查」</strong>。若匯入失敗通常為以下原因，本系統已全面修復並 100% 遵照官方規範：
-          </p>
-          <ul style="margin-left: 1.25rem; font-size: 0.85rem; color: var(--text-muted); line-height: 1.7;">
-            <li><strong style="color: var(--text-main);">1. 分隔符號必須為標準逗號 <code>,</code>（不可為 Tab <code>\t</code>）</strong>：若使用 Tab 分隔，ee-Class 會將整行判定為單一欄位，找不到題型與題目，導致直接顯示「沒有資料」。系統現已全數改用標準 27 欄逗號分隔！</li>
-            <li><strong style="color: var(--text-main);">2. 第一行必須為 <code>version: 4</code> 搭配 26 個空逗號</strong>：標準首行為 <code>version: 4,,,,,,,,,,,,,,,,,,,,,,,,,,</code>，精準對齊 27 個欄位。</li>
-            <li><strong style="color: var(--text-main);">3. 線上測驗之題型限制（如畫面粉紅色警示）</strong>：「因設定答題次數超過 1 次、隨機出題、平均配分，皆無法匯入問答題、題組、說明」，因此線上測驗僅支援<strong>單選題 (2)、是非題 (1)、填充題 (4)</strong>。本系統產出之單選與是非題完美相容此限制！</li>
-          </ul>
-        </div>
-
-        <!-- 4 大核心匯入格式原則 -->
+        <!-- 27 欄速查表 -->
         <div class="glass-panel rules-summary-card">
           <h3 class="manual-section-title">
             <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"></path></svg>
-            匯入格式 4 大必備規範（防呆檢核重點）
+            ee-Class 官方 27 欄位標準定義速查表
           </h3>
-          <div class="core-rules-grid">
-            <div class="core-rule-item">
-              <div class="rule-num-badge">1</div>
-              <h4>大題標題 / 題型聲明</h4>
-              <p>使用 <code>一、單選題</code>、<code>二、是非題</code> 或於題目加註 <code>[單選]</code>、<code>[是非]</code>，讓系統準確辨認題型。</p>
-            </div>
-            <div class="core-rule-item">
-              <div class="rule-num-badge">2</div>
-              <h4>題號與題幹清晰</h4>
-              <p>每道題目開頭需有獨立題號（如 <code>1.</code>、<code>2.</code>、<code>(1)</code> 或 <code>Q1.</code>），題幹內容不可空白。</p>
-            </div>
-            <div class="core-rule-item">
-              <div class="rule-num-badge">3</div>
-              <h4>單選題需 2~20 個選項</h4>
-              <p>選項符號支援 <code>(A)~(D)</code> 或 <code>A. B. C. D.</code>，不可少於 2 個選項，且不可有空白選項。</p>
-            </div>
-            <div class="core-rule-item">
-              <div class="rule-num-badge">4</div>
-              <h4>必須明確標記答案</h4>
-              <p>單選題必填 <code>答案：A</code>；是非題必填 <code>答案：O</code> 或 <code>答案：X</code>。未填答案將無法自動批改。</p>
-            </div>
-          </div>
-        </div>
-
-        <!-- 規範區塊 1: 單選題標準規範與對照表 -->
-        <div class="glass-panel manual-card">
-          <div class="manual-card-header">
-            <div>
-              <span class="badge-type badge-single">單選題 (Single Choice)</span>
-              <h3>單選題格式要求與正確 / 錯誤範例對照</h3>
-            </div>
-            <button class="btn btn-secondary btn-sm" data-copy-target="code-sample-single">
-              📋 複製標準單選題範本
-            </button>
-          </div>
-
           <div class="spec-table-wrapper">
             <table class="spec-table">
               <thead>
                 <tr>
+                  <th>欄號</th>
                   <th>欄位名稱</th>
-                  <th>必要性</th>
-                  <th>規範要求</th>
-                  <th>支援格式範例</th>
+                  <th>各題型填寫規定與說明</th>
                 </tr>
               </thead>
               <tbody>
                 <tr>
-                  <td><strong>題幹 (Stem)</strong></td>
-                  <td><span class="tag-required">必填</span></td>
-                  <td>清楚敘述題目情境與問句，不可空白。</td>
-                  <td><code>1. 下列何者屬於原核生物？</code></td>
+                  <td><strong>Col 1</strong></td>
+                  <td>題組</td>
+                  <td>留空（題庫格式相容欄位，題庫不支援）。</td>
                 </tr>
                 <tr>
-                  <td><strong>選項 (Options)</strong></td>
-                  <td><span class="tag-required">必填</span></td>
-                  <td>至少 2 個選項（上限 20 個），英文字母開頭。</td>
-                  <td><code>(A) 細菌 (B) 酵母菌 (C) 原蟲 (D) 藻類</code></td>
+                  <td><strong>Col 2</strong></td>
+                  <td>類別 (Category)</td>
+                  <td>選填。填寫所屬章節或分類（例如：<code>第一章 綠色能源</code>）。</td>
                 </tr>
                 <tr>
-                  <td><strong>答案 (Answer)</strong></td>
-                  <td><span class="tag-required">必填 (阻擋項)</span></td>
-                  <td>指定唯一正確答案，字母必須對應既有選項。</td>
-                  <td><code>答案：A</code> 或 <code>Key: A</code></td>
+                  <td><strong>Col 3</strong></td>
+                  <td>題型 (Type)</td>
+                  <td><code>1</code>=是非題、<code>2</code>=單選題、<code>3</code>=複選題、<code>4</code>=填充題、<code>5</code>=問答題。</td>
                 </tr>
                 <tr>
-                  <td><strong>解析 (Explanation)</strong></td>
-                  <td><span class="tag-optional">強烈建議</span></td>
-                  <td>說明正確答案理由，學生考後可檢討。</td>
-                  <td><code>解析：細菌無成形細胞核，屬原核生物。</code></td>
+                  <td><strong>Col 4</strong></td>
+                  <td>題目題幹 (Stem)</td>
+                  <td>題目文字。<strong>填充題</strong>需把答案內嵌為 <code>[*答案*]</code>（單題可多格）。</td>
                 </tr>
                 <tr>
-                  <td><strong>難易度 (Difficulty)</strong></td>
-                  <td><span class="tag-optional">選填</span></td>
-                  <td>容易 (1) / 適中 (2) / 困難 (3)，預設為適中。</td>
-                  <td><code>難易度：適中</code></td>
+                  <td><strong>Col 5</strong></td>
+                  <td>答案 (Answer)</td>
+                  <td>
+                    是非: <code>1</code>=是 / <code>2</code>=否；<br>
+                    單選: 選項序號 <code>1~20</code>；<br>
+                    複選: 逗號相連序號 <code>"1,2,4"</code>；<br>
+                    填充: <strong>留空</strong>（答案已內嵌於題幹 <code>[*...*]</code> 中）；<br>
+                    問答: 參考答案文字。
+                  </td>
+                </tr>
+                <tr>
+                  <td><strong>Col 6</strong></td>
+                  <td>解說 (Explanation)</td>
+                  <td>題目解析或詳解文字（選填）。</td>
+                </tr>
+                <tr>
+                  <td><strong>Col 7</strong></td>
+                  <td>難易度</td>
+                  <td><code>1</code>=容易、<code>2</code>=適中、<code>3</code>=困難。</td>
+                </tr>
+                <tr>
+                  <td><strong>Col 8</strong></td>
+                  <td>選項 1</td>
+                  <td>單選/複選為選項 A 文字；<strong>填充題</strong>為大小寫比對（<code>1</code>=不分大小寫、<code>2</code>=區分大小寫）。</td>
+                </tr>
+                <tr>
+                  <td><strong>Col 9</strong></td>
+                  <td>選項 2</td>
+                  <td>單選/複選為選項 B 文字；<strong>填充題</strong>為順序比對（<code>1</code>=不考慮順序、<code>2</code>=需考慮順序）。</td>
+                </tr>
+                <tr>
+                  <td><strong>Col 10~27</strong></td>
+                  <td>選項 3 ~ 20</td>
+                  <td>單選/複選為選項 C~T 文字；其餘題型一律為空逗號。</td>
                 </tr>
               </tbody>
             </table>
-          </div>
-
-          <!-- 正確範例 vs 常見錯誤對照 -->
-          <div class="comparison-grid">
-            <!-- 正確範例 -->
-            <div class="comparison-col comp-valid">
-              <div class="comp-header">
-                <span class="comp-icon">✅</span>
-                <h4>標準合格格式 (可順利匯入)</h4>
-              </div>
-              <pre class="comp-code" id="code-sample-single">一、單選題
-1. 活性污泥法中，扮演最主要有機物降解角色的微生物是？
-(A) 細菌 (Bacteria)
-(B) 原生動物 (Protozoa)
-(C) 後生動物 (Metazoa)
-(D) 藻類 (Algae)
-答案：A
-解析：細菌是活性污泥絮體的主要構成者與有機物去除主力。
-難易度：適中</pre>
-              <div class="comp-note text-success">
-                ✔️ 題型、題號、4 個選項、正確答案與解析齊全，100% 合規。
-              </div>
-            </div>
-
-            <!-- 常見錯誤範例 -->
-            <div class="comparison-col comp-invalid">
-              <div class="comp-header">
-                <span class="comp-icon">❌</span>
-                <h4>常見 3 大格式錯誤 (系統將嚴格阻擋)</h4>
-              </div>
-              <div class="invalid-examples-list">
-                <div class="invalid-item">
-                  <div class="invalid-badge">錯誤 1: 缺少正確答案</div>
-                  <code>1. 下列何者能行光合作用？<br>(A) 藍綠菌 (B) 酵母菌<br><span class="err-text">（漏寫了答案行！）</span></code>
-                  <p class="err-explain">🚫 阻擋原因：未指定答案，ee-Class 測驗系統無法設定評分標準。</p>
-                </div>
-                <div class="invalid-item">
-                  <div class="invalid-badge">錯誤 2: 選項少於 2 個</div>
-                  <code>2. 關於硝化作用下列何者正確？<br>(A) 為厭氧反應<br>答案：A</code>
-                  <p class="err-explain">🚫 阻擋原因：單選題僅 1 個選項，不符選擇題邏輯規格。</p>
-                </div>
-                <div class="invalid-item">
-                  <div class="invalid-badge">錯誤 3: 答案超出選項範圍</div>
-                  <code>3. 水樣 COD 檢測原理...<br>(A) 硫酸鉀 (B) 重鉻酸鉀<br>答案：<span class="err-text">D</span></code>
-                  <p class="err-explain">🚫 阻擋原因：題目只有 (A)(B) 兩項，答案卻指定 D。</p>
-                </div>
-              </div>
-            </div>
           </div>
         </div>
 
-        <!-- 規範區塊 2: 是非題標準規範與對照表 -->
+        <!-- 題型規範對照 -->
         <div class="glass-panel manual-card">
           <div class="manual-card-header">
             <div>
-              <span class="badge-type badge-tf">是非題 (True/False)</span>
-              <h3>是非題格式要求與正確 / 錯誤範例對照</h3>
+              <span class="badge-type badge-type-3">複選題 (Type 3) 與 填充題 (Type 4) 規範</span>
+              <h3>進階題型語法規範與範本</h3>
             </div>
-            <button class="btn btn-secondary btn-sm" data-copy-target="code-sample-tf">
-              📋 複製標準是非題範本
+            <button class="btn btn-secondary btn-sm" data-copy-target="code-sample-advance">
+              📋 複製進階題型範本
             </button>
           </div>
 
-          <div class="spec-table-wrapper">
-            <table class="spec-table">
-              <thead>
-                <tr>
-                  <th>欄位名稱</th>
-                  <th>必要性</th>
-                  <th>合法答案代碼表</th>
-                  <th>格式範例</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr>
-                  <td><strong>題幹 (Stem)</strong></td>
-                  <td><span class="tag-required">必填</span></td>
-                  <td>清楚敘述待判斷真偽之陳述句。</td>
-                  <td><code>1. 藍綠菌具有核膜包覆之細胞核。</code></td>
-                </tr>
-                <tr>
-                  <td><strong>答案為「是 / 正確」</strong></td>
-                  <td><span class="tag-required">必填代碼</span></td>
-                  <td>支援 <code>O</code>, <code>○</code>, <code>⭕</code>, <code>是</code>, <code>對</code>, <code>正確</code>, <code>True</code>, <code>T</code>, <code>V</code>, <code>✔</code></td>
-                  <td><code>答案：O</code> 或 <code>(O) 題目...</code></td>
-                </tr>
-                <tr>
-                  <td><strong>答案為「否 / 錯誤」</strong></td>
-                  <td><span class="tag-required">必填代碼</span></td>
-                  <td>支援 <code>X</code>, <code>╳</code>, <code>✕</code>, <code>✘</code>, <code>否</code>, <code>錯</code>, <code>錯誤</code>, <code>False</code>, <code>F</code></td>
-                  <td><code>答案：X</code> 或 <code>(X) 題目...</code></td>
-                </tr>
-                <tr>
-                  <td><strong>解析 (Explanation)</strong></td>
-                  <td><span class="tag-optional">強烈建議</span></td>
-                  <td>尤其是答案為「否」時，強烈建議附上錯誤原因說明。</td>
-                  <td><code>解析：藍綠菌為原核生物，不具真核。</code></td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
+          <pre class="comp-code" id="code-sample-advance">三、複選題
+[類別：生物脫氮]
+1. 關於廢水生物脫氮，下列哪些敘述正確？
+(A) 硝化作用是由氨氧化菌與亞硝酸氧化菌共同完成
+(B) 脫氮作用主要在好氧條件下進行
+(C) 溶氧不足容易導致 N2O 溫室氣體釋放
+(D) 反硝化菌通常需要碳源
+答案：(A)(C)(D)
+解析：脫氮作用在缺氧/無氧條件下進行，因此(B)錯誤。
+難易度：困難
 
-          <!-- 是非題範例對照 -->
-          <div class="comparison-grid">
-            <!-- 正確範例 -->
-            <div class="comparison-col comp-valid">
-              <div class="comp-header">
-                <span class="comp-icon">✅</span>
-                <h4>標準合格格式 (可順利匯入)</h4>
-              </div>
-              <pre class="comp-code" id="code-sample-tf">二、是非題
-1. 活性污泥中的絲狀菌若大量增生，可能導致污泥膨脹 (Sludge Bulking) 現象。
-答案：O
-解析：絲狀菌過度生長會阻礙污泥沉降，造成 SVI 升高與污泥流失。
-難易度：適中
-
-2. 病毒在活體寄主細胞外仍能獨立進行能量代謝與自體複製。( )
-答案：X
-解析：病毒缺乏獨立代謝酵素系統，必須寄生於活細胞內方能複製。
+四、填充題
+[類別：環境監測]
+1. 大氣中主要溫室氣體包含二氧化碳、[*甲烷*]與[*氧化亞氮*]。
+答案：甲烷, 氧化亞氮
 難易度：容易</pre>
-              <div class="comp-note text-success">
-                ✔️ 是非題可寫「答案：O/X」，亦可於題幹首尾括號標記，均能智慧識別。
-              </div>
-            </div>
-
-            <!-- 常見錯誤範例 -->
-            <div class="comparison-col comp-invalid">
-              <div class="comp-header">
-                <span class="comp-icon">❌</span>
-                <h4>常見 3 大格式錯誤 (系統將嚴格阻擋)</h4>
-              </div>
-              <div class="invalid-examples-list">
-                <div class="invalid-item">
-                  <div class="invalid-badge">錯誤 1: 未標記答案</div>
-                  <code>1. 好氧處理的 BOD 去除率高於厭氧處理。<br><span class="err-text">（未提供答案行，亦無括號標示 O/X）</span></code>
-                  <p class="err-explain">🚫 阻擋原因：是非題缺答案代碼，系統無法判定正確解答。</p>
-                </div>
-                <div class="invalid-item">
-                  <div class="invalid-badge">錯誤 2: 答案使用模糊詞彙</div>
-                  <code>2. 某工廠放流水 COD 符合排放標準。<br>答案：<span class="err-text">視情況而定 / 不一定</span></code>
-                  <p class="err-explain">🚫 阻擋原因：是非題答案必須明確為「是 (1)」或「否 (2)」。</p>
-                </div>
-                <div class="invalid-item">
-                  <div class="invalid-badge">錯誤 3: 是非題混入選擇題選項</div>
-                  <code>3. 硝化反應需要好氧環境。<br>(A) 是 (B) 否<br>答案：A</code>
-                  <p class="err-explain">💡 修正建議：此寫法會被識別為單選題。若為是非題，請直接標「答案：O」。</p>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- 規範區塊 3: 嚴格阻擋機制規則與修正指引 -->
-        <div class="glass-panel manual-card">
-          <div class="manual-card-header">
-            <div>
-              <span class="badge-type" style="background: rgba(239, 68, 68, 0.2); color: #f87171; border-color: rgba(239, 68, 68, 0.4);">🛡️ 嚴格阻擋機制</span>
-              <h3>系統何時會阻擋匯出？以及如何快速修正？</h3>
-            </div>
-          </div>
-
-          <div class="blocking-rules-flow">
-            <div class="blocking-box">
-              <h4>🚫 阻擋條件（出現任一項即禁止匯出）：</h4>
-              <ul>
-                <li>❌ <strong>題目缺答案</strong>：單選題或是非題未標註答案。</li>
-                <li>❌ <strong>選項不足</strong>：單選題選項少於 2 個。</li>
-                <li>❌ <strong>答案超界</strong>：單選題指定答案字母超出選項範圍（如選項只有 A-C 卻選 D）。</li>
-                <li>❌ <strong>題幹為空</strong>：僅有題號而無具體題目文字。</li>
-              </ul>
-            </div>
-            <div class="blocking-box" style="border-left-color: var(--accent-emerald);">
-              <h4>🛠️ 快速修復步驟（無需重新貼上）：</h4>
-              <ol>
-                <li>點擊彈窗上的 <strong>「🛠️ 前往編輯器修正問題題目」</strong>。</li>
-                <li>系統會自動切換至編輯器，並為您篩選出所有<strong>「⚠️ 待修正」</strong>題目。</li>
-                <li>直接在卡片上<strong>點擊單選圓鈕</strong>或 <strong>[ ⭕ 是 ] / [ ❌ 否 ]</strong> 補齊答案。</li>
-                <li>補齊後待修正徽章歸零，即可暢行無阻<strong>點擊右上角「匯出 ee-class CSV」</strong>！</li>
-              </ol>
-            </div>
-          </div>
         </div>
       </div>
     </section>
@@ -593,220 +473,106 @@
     <!-- ==================== TAB 4: AI 出題提示詞 (Prompt 助手) ==================== -->
     <section id="tab-prompts" class="tab-content">
       <div class="prompts-grid">
-        <!-- 提示詞範本 1: 大學/技職期中考綜合題庫 -->
+        <!-- 提示詞範本 1: Tools_QB 講義轉 5 大題型題庫 -->
         <div class="glass-panel prompt-card">
           <div class="prompt-card-header">
             <div>
-              <h3>🎓 大學專業課程期中/期末測驗 (推薦)</h3>
-              <p>適合讓 AI 依據指定單元出 20-30 題標準單選與是非題</p>
+              <h3>📄 講義 / Word 考卷轉成 5 大題型題庫 (Tools_QB 升級版)</h3>
+              <p>將現有教材或考卷貼給 AI，直接產出相容本系統 5 大題型的標準題庫</p>
             </div>
             <button class="btn btn-primary btn-sm" data-copy-target="prompt-template-1">
               📋 一鍵複製
             </button>
           </div>
-          <pre class="prompt-code-block" id="prompt-template-1">你是一位大學教授，請針對【填寫科目名稱，例如：環境微生物學 - 第2至4週 原核/真核、生物膜分離與活性污泥指標】出題。
+          <pre class="prompt-code-block" id="prompt-template-1">請將以下提供的【課程講義 / 考卷內容】轉化為標準題庫格式。
+請包含是非題、單選題、複選題與填充題：
 
-請出 15 題單選題與 15 題是非題，要求如下：
-1. 題目必須具備學術準確性與專業度，語意清晰。
-2. 單選題每題提供 4 個選項 (A) 至 (D)，只有 1 個最佳答案。
-3. 是非題需明確標示正確答案為 O 或 X。
-4. 每題必須提供「答案」、「解析」（詳細說明原因）及「難易度」（容易 / 適中 / 困難）。
-5. 格式請完全依照以下結構輸出：
+要求規範：
+1. 頂部標註【類別：章節或主題名稱】。
+2. 是非題：答案請寫「答案：O」或「答案：X」。
+3. 單選題：每題 4 個選項 (A)(B)(C)(D)，標註「答案：A」。
+4. 複選題：選項 (A)(B)(C)(D)，答案寫「答案：(A)(C)」或「答案：A, C」。
+5. 填充題：題幹中挖空格處請直接寫為 [*標準答案*]，例如「地球約有[*70%*]為海洋」。
+6. 每題請標註解析與難易度（容易/適中/困難）。
 
-一、單選題
-1. 題目敘述？
-(A) 選項1
-(B) 選項2
-(C) 選項3
-(D) 選項4
-答案：A
-解析：詳細解釋...
-難易度：適中
-
-二、是非題
-1. 是非題敘述內容。
-答案：O
-解析：詳細解釋...
-難易度：容易</pre>
+【課程教材內容】：
+（請在此處貼上教材內容或考題）</pre>
         </div>
 
-        <!-- 提示詞範本 2: 根據課文、講義或 PPT 出題 -->
+        <!-- 提示詞範本 2: 大學專業課程自動命題 -->
         <div class="glass-panel prompt-card">
           <div class="prompt-card-header">
             <div>
-              <h3>📄 貼上講義 / PPT 內容精準出題</h3>
-              <p>將上課講義或講稿貼入，讓 AI 針對講義核心重點出題</p>
+              <h3>🎓 大學專業課程 AI 全方位出題 (期中期末考題型配比)</h3>
+              <p>自動按配比出是非 5 題、單選 10 題、複選 5 題、填充 5 題</p>
             </div>
             <button class="btn btn-primary btn-sm" data-copy-target="prompt-template-2">
               📋 一鍵複製
             </button>
           </div>
-          <pre class="prompt-code-block" id="prompt-template-2">請仔細研讀以下【課程教材內容】，針對教材重點設計測驗題：
-【教材內容】：
-（請在此處貼上上課講義、投影片文字或教科書重點）
+          <pre class="prompt-code-block" id="prompt-template-2">請扮演【大學專業課程命題教授】，針對主題【主題名稱】設計一份完整題庫：
+題型配比要求：
+- 是非題 5 題（答案：O 或 X）
+- 單選題 10 題（4個選項 (A)~(D)，答案：A/B/C/D）
+- 複選題 5 題（4個選項，答案：A, B）
+- 填充題 5 題（以 [*答案*] 內嵌在題幹中）
 
-出題要求：
-1. 請產出 10 題「單選題」與 10 題「是非題」。
-2. 題目需著重核心概念理解、常見盲點與應用分析。
-3. 單選題每題 4 個選項 (A)(B)(C)(D)，標記唯一正確答案。
-4. 是非題請清楚標記答案為 O (正確) 或 X (錯誤)。
-5. 每題均附上答案、解析與難度。
-
-輸出格式：
-一、單選題
-1. 題目...
-(A) ...
-(B) ...
-(C) ...
-(D) ...
-答案：A
-解析：...
-難易度：適中
-
-二、是非題
-1. 題目...
-答案：X
-解析：...
-難易度：適中</pre>
-        </div>
-
-        <!-- 提示詞範本 3: 快速簡短出題 -->
-        <div class="glass-panel prompt-card">
-          <div class="prompt-card-header">
-            <div>
-              <h3>⚡ 極速出題提示詞 (適合臨時抽考)</h3>
-              <p>快速讓 AI 生成 10 題單選與是非題</p>
-            </div>
-            <button class="btn btn-primary btn-sm" data-copy-target="prompt-template-3">
-              📋 一鍵複製
-            </button>
-          </div>
-          <pre class="prompt-code-block" id="prompt-template-3">請針對【主題：例如 顯微鏡操作、革蘭氏染色與活性污泥原蟲】生成 5 題單選題與 5 題是非題。
-請嚴格遵循標準格式：
-
-一、單選題
-1. 題目？
-(A) 選項A
-(B) 選項B
-(C) 選項C
-(D) 選項D
-答案：A
-解析：原因說明
-
-二、是非題
-1. 題目？
-答案：O
-解析：原因說明</pre>
+每題均包含：題幹、選項、答案、解析與難易度。請嚴格依序輸出。</pre>
         </div>
       </div>
     </section>
 
-    <!-- ==================== TAB 4: ee-Class 匯入教學說明 ==================== -->
+    <!-- ==================== TAB 5: ee-Class 匯入教學說明 ==================== -->
     <section id="tab-guide" class="tab-content">
       <div class="tutorial-layout">
         <div class="glass-panel tutorial-step-card">
           <span class="step-badge">操作流程指南</span>
           <h3>如何匯入題目至 ee-Class / TronClass？</h3>
-          <p>ee-Class 支援 <strong>CSV</strong> 與 <strong>GIFT</strong> 兩種標準匯入格式，本系統兩者皆提供完美支援！請依照下列步驟操作：</p>
+          <p>ee-Class 支援 <strong>CSV (Version 4 規範)</strong> 與 <strong>GIFT</strong> 兩種標準匯入格式，本系統兩者皆提供完美支援！請依照下列步驟操作：</p>
 
           <ol style="margin-left: 1.25rem; color: var(--text-muted); font-size: 0.9rem; line-height: 1.8;">
-            <li>在上方點選 <strong>「📥 匯出 ee-class CSV」</strong> 或 <strong>「🎁 匯出 GIFT 格式」</strong> 下載題庫檔案。</li>
-            <li>登入學校 <strong>ee-Class / TronClass</strong> 平台，進入您的課程。</li>
-            <li>進入「線上測驗」或「作業測驗」管理頁面，點選建立測驗或編輯測驗。</li>
-            <li>在測驗題目編輯畫面右下角，點擊 <strong>「匯入」</strong> 按鈕（如系統首頁截圖所示）。</li>
+            <li>在上方點選 <strong>「📥 匯出 ee-class CSV」</strong>（新版推薦）或 <strong>「📑 匯出 Big5 副本」</strong>（舊系統專用）或 <strong>「🎁 匯出 GIFT」</strong>。</li>
+            <li>登入學校 <strong>ee-Class / TronClass</strong> 平台，進入授課課程。</li>
+            <li>進入「測驗」&rarr; 建立測驗或進入編輯測驗。</li>
+            <li>在測驗題目編輯畫面右下角操作區，點擊 <strong>「匯入」</strong> 按鈕。</li>
             <li>在跳出的「匯入題目」彈窗中：
               <ul style="margin-top: 0.4rem; margin-bottom: 0.4rem;">
                 <li>若下載的是 CSV：點擊 <strong>「CSV」</strong> 圖示，並選擇下載的 <code>.csv</code> 檔案。</li>
                 <li>若下載的是 GIFT：點擊 <strong>「GIFT」</strong> 圖示，並選擇下載的 <code>.gift</code> 檔案。</li>
               </ul>
             </li>
-            <li>點擊上傳確認，ee-Class 將會自動將題目、4個選項、正確答案、難易度及詳細解說完整匯入！</li>
+            <li>點擊上傳確認，ee-Class 將會自動將題目、題型、各選項、正確答案、難易度、類別及詳細解說完整匯入！</li>
           </ol>
-        </div>
-
-        <div class="glass-panel tutorial-step-card">
-          <span class="step-badge">格式比較與相容性</span>
-          <h3>CSV 與 GIFT 兩種格式的比較</h3>
-          <p>本轉換系統經過針對 ee-Class 平台 Version 4 範本反覆測試，確保 100% 格式相容性：</p>
-
-          <table class="method-compare-table">
-            <thead>
-              <tr>
-                <th>比較項目</th>
-                <th>ee-class CSV</th>
-                <th>Moodle / ee-class GIFT</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td><strong>匯入按鈕</strong></td>
-                <td>點擊彈窗左邊「CSV」</td>
-                <td>點擊彈窗中間「GIFT」</td>
-              </tr>
-              <tr>
-                <td><strong>分隔符號</strong></td>
-                <td><strong>標準逗號 (,)</strong>，精準對齊 27 欄</td>
-                <td>花括號 <code>{...}</code> 測驗標記</td>
-              </tr>
-              <tr>
-                <td><strong>編碼格式</strong></td>
-                <td>UTF-8 with BOM (防止中文亂碼)</td>
-                <td>標準 UTF-8 純文字</td>
-              </tr>
-              <tr>
-                <td><strong>解析度/公式</strong></td>
-                <td>支援 λ、μm、希臘字母與引號</td>
-                <td>支援花括號跳脫處理</td>
-              </tr>
-              <tr>
-                <td><strong>難易度支援</strong></td>
-                <td>完整支援 (容易/適中/困難)</td>
-                <td>依平台預設</td>
-              </tr>
-              <tr>
-                <td><strong>推薦情境</strong></td>
-                <td><strong>最推薦！</strong> 格式完全符合 ee-Class 官方規格</td>
-                <td>備用格式，免除任何試算表欄位問題</td>
-              </tr>
-            </tbody>
-          </table>
         </div>
       </div>
     </section>
   </main>
 
-  <!-- 格式診斷與嚴格阻擋彈窗 (Diagnostics & Strict Blocking Modal) -->
-  <div id="diagnostics-modal-overlay" class="modal-overlay" style="display: none;">
-    <div class="modal-card glass-panel">
+  <!-- 檢核防呆診斷彈出視窗 (Modal) -->
+  <div id="diagnostics-modal" class="modal-overlay">
+    <div class="glass-panel modal-card">
       <div class="modal-header">
         <div class="modal-title-group">
-          <div class="modal-icon-badge" id="modal-icon-badge">🚫</div>
+          <div class="modal-alert-icon">🛡️</div>
           <div>
-            <h3 id="modal-title">格式檢核未通過，已為您阻擋匯出</h3>
-            <p id="modal-subtitle">系統依據嚴格防呆規範檢核，發現以下題目存在重大格式瑕疵：</p>
+            <h3>嚴格防呆檢核未通過：已阻擋匯出</h3>
+            <p>為避免匯入 ee-Class 後題型錯亂或計分錯誤，請先修正以下項目：</p>
           </div>
         </div>
-        <button id="modal-close-btn" class="btn btn-icon-only modal-close" title="關閉視窗">
-          <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
-        </button>
+        <div class="modal-badges">
+          <span class="badge-error" id="modal-err-count">0 項錯誤阻擋</span>
+          <span class="badge-warn" id="modal-warn-count">0 項建議</span>
+        </div>
       </div>
 
       <div class="modal-body">
-        <!-- 統計徽章條 -->
-        <div class="diagnostic-summary-bar">
-          <span class="diag-chip diag-critical" id="diag-critical-chip">🚫 0 處嚴重阻擋錯誤</span>
-          <span class="diag-chip diag-warning" id="diag-warning-chip">⚠️ 0 處格式建議</span>
-          <span class="diag-chip diag-rule">🛡️ 嚴格防呆標準已啟動</span>
-        </div>
-
-        <!-- 錯誤項目列表清單 -->
-        <div id="modal-issues-list" class="diagnostic-issues-list">
-          <!-- 由 JS 動態生成每項錯誤與快速修正按鈕 -->
+        <div class="modal-issues-list" id="modal-issues-list">
+          <!-- 由 JS 動態生成診斷條目 -->
         </div>
       </div>
 
       <div class="modal-footer">
-        <button id="modal-btn-fix" class="btn btn-primary">
+        <button id="modal-btn-go-editor" class="btn btn-primary">
           <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>
           🛠️ 前往編輯器修正問題題目
         </button>
@@ -823,6 +589,8 @@
   <div id="toast-container" class="toast-container"></div>
 
   <!-- 載入核心模組與主程式腳本 -->
+  <script src="jszip.min.js"></script>
+  <script src="big5-encoder.js"></script>
   <script src="parser.js"></script>
   <script src="exporter.js"></script>
   <script src="app.js"></script>

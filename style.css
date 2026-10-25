@@ -1823,3 +1823,290 @@ body.light-theme .modal-header h3 {
     grid-template-columns: 1fr;
   }
 }
+
+/* ==========================================================================
+   Tools_QB 增強版擴充樣式 (File Dropzone, 5 題型元件, 類別管理, Big5 匯出)
+   ========================================================================== */
+
+/* 檔案拖曳上傳區 (Dropzone) */
+.upload-dropzone {
+  border: 2px dashed rgba(59, 130, 246, 0.4);
+  background: rgba(15, 23, 42, 0.5);
+  border-radius: var(--radius-lg);
+  padding: 1.5rem 1.25rem;
+  text-align: center;
+  cursor: pointer;
+  transition: all var(--transition-base);
+  margin-bottom: 1.25rem;
+  position: relative;
+  overflow: hidden;
+}
+.upload-dropzone:hover, .upload-dropzone.drag-active {
+  border-color: var(--primary-400);
+  background: rgba(59, 130, 246, 0.12);
+  box-shadow: 0 0 20px rgba(59, 130, 246, 0.25);
+  transform: translateY(-2px);
+}
+.dropzone-inner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+}
+.dropzone-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: var(--radius-full);
+  background: rgba(59, 130, 246, 0.15);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--primary-400);
+  transition: transform var(--transition-bounce);
+}
+.upload-dropzone:hover .dropzone-icon {
+  transform: scale(1.1) rotate(-5deg);
+}
+.dropzone-title {
+  font-weight: 700;
+  font-size: 1rem;
+  color: var(--text-main);
+}
+.dropzone-desc {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+.dropzone-formats {
+  display: flex;
+  gap: 0.4rem;
+  margin-top: 0.25rem;
+}
+.format-pill {
+  font-size: 0.75rem;
+  padding: 0.15rem 0.5rem;
+  border-radius: var(--radius-full);
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--primary-300);
+  font-weight: 600;
+}
+
+/* 全域題庫類別管理列 */
+.global-category-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  background: rgba(30, 41, 59, 0.5);
+  padding: 0.75rem 1rem;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-glass);
+  margin-bottom: 1.25rem;
+  flex-wrap: wrap;
+}
+.category-input-group {
+  display: flex;
+  align-items: center;
+  flex: 1;
+  min-width: 250px;
+  gap: 0.5rem;
+}
+.category-input-group label {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+.category-input-group input {
+  flex: 1;
+  background: var(--bg-input);
+  border: 1px solid var(--border-glass);
+  border-radius: var(--radius-sm);
+  padding: 0.4rem 0.75rem;
+  color: var(--text-main);
+  font-size: 0.9rem;
+}
+.category-input-group input:focus {
+  border-color: var(--primary-400);
+  outline: none;
+}
+
+/* 5 大題型統計徽章色彩 */
+.stat-pill.stat-multi {
+  background: rgba(16, 185, 129, 0.15);
+  color: #34d399;
+  border: 1px solid rgba(16, 185, 129, 0.3);
+}
+.stat-pill.stat-fill {
+  background: rgba(245, 158, 11, 0.15);
+  color: #fbbf24;
+  border: 1px solid rgba(245, 158, 11, 0.3);
+}
+.stat-pill.stat-essay {
+  background: rgba(236, 72, 153, 0.15);
+  color: #f472b6;
+  border: 1px solid rgba(236, 72, 153, 0.3);
+}
+
+/* 題目卡片題型標籤 */
+.badge-type-1 {
+  background: rgba(139, 92, 246, 0.2);
+  color: #c084fc;
+  border: 1px solid rgba(139, 92, 246, 0.4);
+}
+.badge-type-2 {
+  background: rgba(59, 130, 246, 0.2);
+  color: #93c5fd;
+  border: 1px solid rgba(59, 130, 246, 0.4);
+}
+.badge-type-3 {
+  background: rgba(16, 185, 129, 0.2);
+  color: #6ee7b7;
+  border: 1px solid rgba(16, 185, 129, 0.4);
+}
+.badge-type-4 {
+  background: rgba(245, 158, 11, 0.2);
+  color: #fcd34d;
+  border: 1px solid rgba(245, 158, 11, 0.4);
+}
+.badge-type-5 {
+  background: rgba(236, 72, 153, 0.2);
+  color: #f9a8d4;
+  border: 1px solid rgba(236, 72, 153, 0.4);
+}
+
+/* 題目卡片類別標籤 */
+.card-category-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.2rem 0.6rem;
+  border-radius: var(--radius-full);
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+/* 複選題 Checkbox 選項卡片 */
+.option-item.multi-choice-item {
+  border-left: 3px solid var(--accent-emerald);
+}
+.option-checkbox-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+  user-select: none;
+}
+.custom-checkbox {
+  width: 20px;
+  height: 20px;
+  border-radius: 4px;
+  border: 2px solid var(--accent-emerald);
+  background: rgba(16, 185, 129, 0.1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+.custom-checkbox.checked {
+  background: var(--accent-emerald);
+  color: white;
+}
+
+/* 填充題專用元件 */
+.fillin-editor-wrapper {
+  background: rgba(15, 23, 42, 0.6);
+  border: 1px solid rgba(245, 158, 11, 0.3);
+  border-radius: var(--radius-md);
+  padding: 1rem;
+  margin-top: 0.75rem;
+}
+.fillin-tags-title {
+  font-size: 0.85rem;
+  color: var(--accent-amber);
+  font-weight: 700;
+  margin-bottom: 0.5rem;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+.fillin-tags-container {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-bottom: 0.75rem;
+}
+.fillin-tag-pill {
+  background: rgba(245, 158, 11, 0.2);
+  color: #fbbf24;
+  border: 1px solid rgba(245, 158, 11, 0.4);
+  padding: 0.2rem 0.6rem;
+  border-radius: var(--radius-sm);
+  font-size: 0.85rem;
+  font-family: var(--font-mono);
+  font-weight: 600;
+}
+.fillin-settings-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+  padding-top: 0.5rem;
+  border-top: 1px dashed rgba(255, 255, 255, 0.1);
+}
+.fillin-setting-item label {
+  display: block;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  margin-bottom: 0.25rem;
+}
+.fillin-setting-item select {
+  width: 100%;
+  background: var(--bg-input);
+  border: 1px solid var(--border-glass);
+  color: var(--text-main);
+  padding: 0.35rem 0.5rem;
+  border-radius: var(--radius-sm);
+  font-size: 0.85rem;
+}
+
+/* 問答題專用參考答案框 */
+.essay-editor-wrapper {
+  background: rgba(15, 23, 42, 0.6);
+  border: 1px solid rgba(236, 72, 153, 0.3);
+  border-radius: var(--radius-md);
+  padding: 1rem;
+  margin-top: 0.75rem;
+}
+.essay-editor-wrapper label {
+  display: block;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--accent-pink);
+  margin-bottom: 0.4rem;
+}
+.essay-editor-wrapper textarea {
+  width: 100%;
+  min-height: 80px;
+  background: var(--bg-input);
+  border: 1px solid var(--border-glass);
+  border-radius: var(--radius-sm);
+  padding: 0.6rem;
+  color: var(--text-main);
+  font-family: var(--font-main);
+  font-size: 0.9rem;
+  resize: vertical;
+}
+
+/* Big5 副本按鈕 (金屬琥珀風格) */
+.btn-amber {
+  background: linear-gradient(135deg, #d97706 0%, #b45309 100%);
+  color: white;
+  border: 1px solid rgba(245, 158, 11, 0.4);
+  box-shadow: 0 4px 14px rgba(217, 119, 6, 0.35);
+}
+.btn-amber:hover {
+  background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+  box-shadow: 0 6px 20px rgba(245, 158, 11, 0.5);
+  transform: translateY(-1px);
+}

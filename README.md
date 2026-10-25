@@ -1,96 +1,110 @@
-# ee-Class 智慧題目轉換系統 (AI Quiz Converter)
+# ee-Class 智慧題庫與考題轉換系統 (AI & Docx Quiz Converter Pro 2026)
 
-專為大學與技職院校教師設計的 **AI 題庫轉化系統**。能夠將 ChatGPT、Claude、Gemini、DeepSeek 等 AI 生成的「選擇題」與「是非題」，快速且精準地轉化為 **ee-Class / TronClass** 測驗平台支援的 **CSV (Version 4 規範)** 與 **GIFT** 匯入格式。
-
----
-
-## 🌟 核心功能特色
-
-1. **零安裝、開箱即用**：
-   - 直接以瀏覽器開啟 [index.html](file:///f:/%E6%96%87%E4%BA%AE/ANTIGRAVITY/homework%E2%80%94%EF%BD%89%EF%BD%8D%EF%BD%90%EF%BD%92%EF%BD%94/index.html) 即可使用現代化圖形介面，或啟動本機伺服器使用。
-2. **多格式智慧辨識 (Smart AI Parser)**：
-   - 自動辨識大題標題（如：`一、單選題`、`二、是非題`）。
-   - 自動解析選項 `(A)~(D)`、`A.`、`A、` 或單行多選項模式。
-   - 自動解析是非題答案：`O/X`、`是/否`、`對/錯`、`True/False`。
-   - 自動萃取題目難易度（容易/適中/困難）與題目解析/詳解。
-   - 全形半形、繁簡中文與 Markdown 粗體星號自動過濾處理。
-3. **🛡️ 嚴格檢核防呆與阻擋機制 (Strict Validation & Blocking Engine)**：
-   - 依據 ee-Class 官方 Version 4 規格進行全方位檢核。
-   - 當發現題目**缺少答案**、**單選題選項少於 2 個**、**答案超出選項字母**或**題幹空白**時，自動彈出診斷清單並**嚴格阻擋匯出**，防止匯入後系統出錯或學生計分爭議，確保 100% 零瑕疵匯入。
-4. **📖 匯入格式規範手冊與常見錯誤對照**：
-   - 內建專屬手冊頁籤，詳細規範單選題/是非題標準語法、必要欄位與支援代碼。
-   - 提供「✅ 正確格式範本」vs「❌ 常見 3 大格式錯誤與修復建議」對照表，並支援一鍵複製範本。
-5. **視覺化題目編輯與校對 (Visual Editor)**：
-   - 卡片式預覽每一道題目，可直接修改題幹、選項、答案與解析。
-   - 單選題點擊單選圓鈕即可快速切換正確答案。
-   - 是非題提供大型 `[ ⭕ 是 ]` 與 `[ ❌ 否 ]` 狀態按鈕，一鍵即時切換。
-   - 支援題目向上/向下排序、複製題目、刪除題目與即時驗證警告（防缺答案）。
-6. **雙格式完美支援**：
-   - 📥 **ee-Class CSV 格式**：依據 ee-Class Version 4 官方標準規範產生，採用 **UTF-8 with BOM** 編碼與標準逗號（Comma, `,`）分隔，欄位正確包裹雙引號，嚴格符合 27 欄位標準結構，徹底解決測驗平台匯入與 Excel 亂碼問題。
-   - 🎁 **Moodle / ee-Class GIFT 格式**：相容標準測驗格式，跳脫特殊符號，直接以 GIFT 格式上傳。
-7. **🌐 GitHub Pages 線上免安裝版**：
-   - 線上即用網址：[https://laisiff-dev.github.io/AI-TEST-EECLASS/](https://laisiff-dev.github.io/AI-TEST-EECLASS/)
-8. **內建 AI 出題 Prompt 助手**：
-   - 提供大學專業課程、講義內容精準出題、期中期末考題型配比等多組經過驗證的 Prompt 模板，一鍵複製給 AI。
-9. **提供 Python 批次處理腳本 (CLI)**：
-   - 支援內建嚴格檢核模式（`--no-strict` 可選），適合批次處理大量文字檔題庫。
+專為大學與技職院校教師設計的 **AI 題庫與考題檔案轉化系統**。整合 [Tools_QB](https://github.com/RelerChenTajen/Tools_QB) 專業題庫轉換架構，把「老師手上的考題檔（Word .docx / Markdown .md / 純文字 .txt）」或 AI（ChatGPT、Claude、Gemini、DeepSeek）生成的題目，快速、精準轉化為 **ee-Class / TronClass** 測驗平台支援的 **官方 27 欄 CSV (Version 4 規範)** 與 **GIFT** 匯入格式，並支援 **UTF-8 with BOM** 與 **Big5 (CP950) 副本**雙編碼輸出！
 
 ---
 
-## 🖥️ 快速開始使用
+## 🌟 核心功能特色 (Tools_QB 增強放大版)
 
-### 方式一：使用現代化 Web 介面 (最推薦，適合所有人)
+```
+   📄 考題檔                 🤖 瀏覽器 / AI / CLI             📊 題庫匯入檔
+  Word / PDF / md   ──▶     智慧解析與視覺化編輯     ──▶   1. ee-Class CSV (UTF-8 BOM)
+                                                           2. Big5 副本 CSV (CP950)
+                                                           3. Moodle/ee-Class GIFT
+```
 
-1. 在檔案總管中對著 [index.html](file:///f:/%E6%96%87%E4%BA%AE/ANTIGRAVITY/homework%E2%80%94%EF%BD%89%EF%BD%8D%EF%BD%90%EF%BD%8F%EF%BD%92%EF%BD%94/index.html) 點擊兩下，使用 Chrome、Edge 或任何瀏覽器開啟。
-2. 或在終端機啟動本機伺服器：
-   ```bash
-   python -m http.server 8080
-   ```
-   並於瀏覽器訪問 `http://127.0.0.1:8080/index.html`。
-3. **使用步驟**：
-   - **步驟 1**：在「1. 貼上 AI 題目與解析」中貼上 AI 生成的題目（或點「📚 載入範例題」試用）。
-   - **步驟 2**：點擊「🚀 立即智慧解析並預覽」，系統會自動切換至「2. 題目預覽與編輯」。
-   - **步驟 3**：校對題幹與選項答案，可自由新增、修改或重新排序。
-   - **步驟 4**：點擊右上角 **「📥 匯出 ee-class CSV」** 或 **「🎁 匯出 GIFT 格式」** 下載檔案。
+1. **📁 支援 Word (.docx) 考題檔直接拖曳抽取**：
+   - 老師手中的段考、期中考、模擬考 Word 檔不用手動一題題複製貼上！
+   - 瀏覽器端與 Python 端均內建純文字 XML 段落抽取引擎，直接把 `.docx`、`.md`、`.txt` 拖入網頁即可秒速抽取題幹與選項！
+2. **🎯 5 大完整題型全面支援 (Full 5 Question Types)**：
+   - **題型 1 是非題 (True/False)**：答案代碼 `1`=是、`2`=否。
+   - **題型 2 單選題 (Single Choice)**：支援 2~20 個選項 (A..T)，答案填寫選項序號 `1~20`。
+   - **題型 3 複選題 (Multiple Choice)**：支援多選項勾選，答案自動以逗號連接 `"1,2,4"`（或 `A, C, D`）。
+   - **題型 4 填充題 (Fill-in-the-blank)**：題幹內嵌 `[*答案*]`（單題可多格），答案欄官方規定留空，第 8 欄支援大小寫比對（`1`=不分大小寫、`2`=區分大小寫），第 9 欄支援順序比對（`1`=不考慮順序、`2`=需考慮順序）。
+   - **題型 5 問答題 / 簡答題 (Essay)**：題幹完整呈現，答案欄直接填入參考答案與評分重點。
+3. **🏷️ 題庫「類別 (Category)」全域與單題管理**：
+   - 嚴格對應 ee-Class CSV 第 2 欄「類別」。
+   - 可一鍵設定「全域類別 / 所屬章節」（如：`單元一：環境微生物學基礎`），亦可在題目預覽卡片中個別修改每題章節。
+4. **📑 雙編碼雙輸出 (Dual Encoding Output)**：
+   - 📥 **ee-Class 官方標準 CSV (UTF-8 with BOM)**：嚴格符合 Version 4 規格（首行 `version: 4,,,,,,,,,,,,,,,,,,,,,,,,,,`，標準 27 欄逗號分隔），解決新版測驗平台與 Excel 中文亂碼。
+   - 📑 **Big5 副本 CSV (CP950 編碼)**：專為僅支援 Big5 的舊型校務測驗系統設計，自動執行數學與符號等義修復（`≥`&rarr;`≧`、`≤`&rarr;`≦`、`・`&rarr;`‧`），消除亂碼。
+   - 🎁 **Moodle / ee-Class GIFT 格式**：標準測驗交換格式，跳脫特殊符號，支援 5 大題型上傳。
+5. **🛡️ 嚴格檢核防呆與阻擋機制 (Strict Validation & Blocking Engine)**：
+   - 匯出前全方位自動檢核：題幹是否空白、是否缺少答案、單選/複選選項是否少於 2 個、答案是否超出選項字母、填充題是否包含 `[*...*]` 標記。
+   - 若有瑕疵即時彈出診斷清單並阻擋匯出，確保所匯出之檔案在 ee-Class 100% 成功匯入，零瑕疵保證！
+6. **🤖 遵循 Agent Skills 開放標準 (`skill/exam-to-qb/`)**：
+   - 本專案內附相容 Agent Skills 開放標準之技能套件，可直接掛載於 **Claude Code** (`~/.claude/skills/`)、**OpenAI Codex** (`~/.agents/skills/`) 與 **Gemini CLI / Antigravity**。
 
 ---
 
-### 方式二：使用 Python 命令列工具 (適合自動化批次轉檔)
+## 🌐 線上免安裝版 (GitHub Pages)
 
-系統內附 [convert_ai_to_eeclass.py](file:///f:/%E6%96%87%E4%BA%AE/ANTIGRAVITY/homework%E2%80%94%EF%BD%89%EF%BD%8D%EF%BD%90%EF%BD%8F%EF%BD%92%EF%BD%94/convert_ai_to_eeclass.py)：
+即開即用，任何裝置、手機或電腦無需安裝任何環境：
+👉 **[https://laisiff-dev.github.io/AI-TEST-EECLASS/](https://laisiff-dev.github.io/AI-TEST-EECLASS/)**
+
+---
+
+## 🖥️ 快速使用指南
+
+### 方式一：使用現代化 Web 介面 (最推薦)
+
+1. 開啟 [GitHub Pages 線上版](https://laisiff-dev.github.io/AI-TEST-EECLASS/) 或本地開啟 [index.html](file:///f:/%E6%96%87%E4%BA%AE/ANTIGRAVITY/homework%E2%80%94%EF%BD%89%EF%BD%8D%EF%BD%90%EF%BD%8F%EF%BD%92%EF%BD%94/index.html)。
+2. **操作步驟**：
+   - **步驟 1**：將老師的考題 Word 檔 (`.docx`) 拖入拖曳區，或貼上 AI 生成的題目文字。
+   - **步驟 2**：輸入「全域題庫類別」（選填），點擊「🚀 立即智慧解析並預覽」。
+   - **步驟 3**：在「2. 題目預覽與編輯」中校對 5 大題型（是非按鈕切換、單選單選鈕、複選勾選框、填充空格標籤、問答參考答案）。
+   - **步驟 4**：點擊右上角按鈕匯出：
+     - **「📥 匯出 ee-class CSV」**（UTF-8 with BOM 官方標準）
+     - **「📑 匯出 Big5 副本」**（舊系統專用）
+     - **「🎁 匯出 GIFT 格式」**
+
+---
+
+### 方式二：使用 Python 命令列工具 (CLI 批次轉檔)
+
+支援直接傳入 `.docx` 檔案或純文字檔：
 
 ```bash
-# 轉為 ee-Class 專用 CSV 檔案 (預設)
-python convert_ai_to_eeclass.py sample_ai_questions.txt -o my_quiz.csv
+# 1. 直接轉換 Word 考題檔，填入類別並同時產生 Big5 副本
+python convert_ai_to_eeclass.py exam.docx -o exam.csv --category "環境微生物學" --big5
 
-# 轉為 GIFT 格式檔案
+# 2. 轉換純文字題庫檔
+python convert_ai_to_eeclass.py sample_ai_questions.txt -o my_quiz.csv --big5
+
+# 3. 轉為 GIFT 測驗格式
 python convert_ai_to_eeclass.py sample_ai_questions.txt --format gift -o my_quiz.gift
 ```
 
 ---
 
-## 📤 ee-Class 匯入完整教學
+## 📊 ee-Class 官方 27 欄位速查表
 
-當您下載好 `.csv` 或 `.gift` 檔案後：
-
-1. 登入學校的 **ee-Class / TronClass** 系統，進入授課課程。
-2. 點選 **「測驗」** &rarr; 建立新測驗或進入現有測驗編輯畫面。
-3. 在題目列表畫面右側操作區，點擊 **「匯入」** 按鈕。
-4. 在彈出視窗「匯入題目」中（如您截圖所示）：
-   - 若為 CSV 檔案：點擊 **「CSV」** 圖示，選擇剛下載的 `.csv` 檔案。
-   - 若為 GIFT 檔案：點擊 **「GIFT」** 圖示，選擇剛下載的 `.gift` 檔案。
-5. 點擊確定上傳，系統將自動完成單選題、是非題、所有選項、正確答案與解析之建置！
+| 欄號 | 欄位名稱 | 填寫規範與 5 大題型對應 |
+| :---: | :--- | :--- |
+| **Col 1** | 題組 | 留空（題庫不支援題組） |
+| **Col 2** | 類別 | 可選；填寫所屬章節或主題（如：`第一章 綠色能源`） |
+| **Col 3** | 題型 | `1`=是非、`2`=單選、`3`=複選、`4`=填充、`5`=問答 |
+| **Col 4** | 題目 | 題幹；**填充題**需將答案內嵌為 `[*答案*]` |
+| **Col 5** | 答案 | 是非: `1`=是/`2`=否；單選: 選項序號；複選: 逗號相連 `"1,2,4"`；填充: **留空**；問答: 參考答案 |
+| **Col 6** | 解說 | 題目詳解說明 |
+| **Col 7** | 難易度 | `1`=容易、`2`=適中、`3`=困難 |
+| **Col 8** | 選項 1 | 選擇題: 選項 A 文字；**填充題**: `1`=不分大小寫 / `2`=區分大小寫 |
+| **Col 9** | 選項 2 | 選擇題: 選項 B 文字；**填充題**: `1`=不考慮順序 / `2`=需考慮順序 |
+| **Col 10~27**| 選項 3~20 | 選擇題其餘選項文字；其餘題型留空 |
 
 ---
 
 ## 📁 檔案結構說明
 
-| 檔案名稱 | 說明 |
+| 檔案/資料夾 | 說明 |
 | :--- | :--- |
-| [index.html](file:///f:/%E6%96%87%E4%BA%AE/ANTIGRAVITY/homework%E2%80%94%EF%BD%89%EF%BD%8D%EF%BD%90%EF%BD%8F%EF%BD%92%EF%BD%94/index.html) | 主應用程式網頁介面 (HTML5) |
-| [style.css](file:///f:/%E6%96%87%E4%BA%AE/ANTIGRAVITY/homework%E2%80%94%EF%BD%89%EF%BD%8D%EF%BD%90%EF%BD%8F%EF%BD%92%EF%BD%94/style.css) | 玻璃擬態科技風現代 CSS 樣式庫 |
-| [parser.js](file:///f:/%E6%96%87%E4%BA%AE/ANTIGRAVITY/homework%E2%80%94%EF%BD%89%EF%BD%8D%EF%BD%90%EF%BD%8F%EF%BD%92%EF%BD%94/parser.js) | AI 題目文本智慧解析引擎 (JavaScript) |
-| [exporter.js](file:///f:/%E6%96%87%E4%BA%AE/ANTIGRAVITY/homework%E2%80%94%EF%BD%89%EF%BD%8D%EF%BD%90%EF%BD%8F%EF%BD%92%EF%BD%94/exporter.js) | ee-Class CSV (Version 4) 與 GIFT 匯出引擎 |
-| [app.js](file:///f:/%E6%96%87%E4%BA%AE/ANTIGRAVITY/homework%E2%80%94%EF%BD%89%EF%BD%8D%EF%BD%90%EF%BD%8F%EF%BD%92%EF%BD%94/app.js) | 前端控制器、即時校驗、互動與 LocalStorage 自動存檔 |
-| [convert_ai_to_eeclass.py](file:///f:/%E6%96%87%E4%BA%AE/ANTIGRAVITY/homework%E2%80%94%EF%BD%89%EF%BD%8D%EF%BD%90%EF%BD%8F%EF%BD%92%EF%BD%94/convert_ai_to_eeclass.py) | Python 命令列獨立轉檔腳本 |
-| [sample_ai_questions.txt](file:///f:/%E6%96%87%E4%BA%AE/ANTIGRAVITY/homework%E2%80%94%EF%BD%89%EF%BD%8D%EF%BD%90%EF%BD%8F%EF%BD%92%EF%BD%94/sample_ai_questions.txt) | 測試用環境微生物學範例題庫 |
+| [index.html](file:///f:/%E6%96%87%E4%BA%AE/ANTIGRAVITY/homework—ｉｍｐｏｒｔ/index.html) | 主應用程式網頁介面 (HTML5) |
+| [style.css](file:///f:/%E6%96%87%E4%BA%AE/ANTIGRAVITY/homework—ｉｍｐｏｒｔ/style.css) | 玻璃擬態科技風現代 CSS 樣式庫 |
+| [parser.js](file:///f:/%E6%96%87%E4%BA%AE/ANTIGRAVITY/homework—ｉｍｐｏｒｔ/parser.js) | 5 大題型與類別智慧解析核心引擎 |
+| [exporter.js](file:///f:/%E6%96%87%E4%BA%AE/ANTIGRAVITY/homework—ｉｍｐｏｒｔ/exporter.js) | ee-Class 27 欄 CSV (UTF-8 / Big5) 與 GIFT 匯出引擎 |
+| [big5-encoder.js](file:///f:/%E6%96%87%E4%BA%AE/ANTIGRAVITY/homework—ｉｍｐｏｒｔ/big5-encoder.js) | 瀏覽器端 Big5 / CP950 二進位轉碼器 (含符號等義修復) |
+| [jszip.min.js](file:///f:/%E6%96%87%E4%BA%AE/ANTIGRAVITY/homework—ｉｍｐｏｒｔ/jszip.min.js) | 瀏覽器端 Word (.docx) 離線解壓與文字抽取套件 |
+| [app.js](file:///f:/%E6%96%87%E4%BA%AE/ANTIGRAVITY/homework—ｉｍｐｏｒｔ/app.js) | 前端控制器、檔案拖曳處理、5題型編輯互動與防呆驗證 |
+| [convert_ai_to_eeclass.py](file:///f:/%E6%96%87%E4%BA%AE/ANTIGRAVITY/homework—ｉｍｐｏｒｔ/convert_ai_to_eeclass.py) | Python 命令列獨立轉檔工具 (支援 .docx、類別與 Big5) |
+| [skill/exam-to-qb/](file:///f:/%E6%96%87%E4%BA%AE/ANTIGRAVITY/homework—ｉｍｐｏｒｔ/skill/exam-to-qb/) | Agent Skills 開放標準技能套件 (Claude / Codex / Gemini CLI) |
+| [sample_ai_questions.txt](file:///f:/%E6%96%87%E4%BA%AE/ANTIGRAVITY/homework—ｉｍｐｏｒｔ/sample_ai_questions.txt) | 5 大題型綜合測試範例題庫 |
