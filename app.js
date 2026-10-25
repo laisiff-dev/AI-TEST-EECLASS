@@ -338,7 +338,7 @@ document.addEventListener('DOMContentLoaded', () => {
       });
     });
 
-    // 彈出視窗按鈕
+    // 彈出視窗按鈕與遮罩關閉
     if (dom.modalBtnGoEditor) {
       dom.modalBtnGoEditor.addEventListener('click', () => {
         closeDiagnosticsModal();
@@ -358,6 +358,29 @@ document.addEventListener('DOMContentLoaded', () => {
         closeDiagnosticsModal();
       });
     }
+
+    const btnCloseX = document.getElementById('modal-btn-close-x');
+    if (btnCloseX) {
+      btnCloseX.addEventListener('click', () => {
+        closeDiagnosticsModal();
+      });
+    }
+
+    // 點擊背景遮罩關閉
+    if (dom.diagModal) {
+      dom.diagModal.addEventListener('click', (e) => {
+        if (e.target === dom.diagModal) {
+          closeDiagnosticsModal();
+        }
+      });
+    }
+
+    // ESC 鍵關閉
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && dom.diagModal && dom.diagModal.classList.contains('active')) {
+        closeDiagnosticsModal();
+      }
+    });
   }
 
   /**
@@ -1092,6 +1115,7 @@ document.addEventListener('DOMContentLoaded', () => {
       dom.modalIssuesList.appendChild(item);
     });
 
+    dom.diagModal.style.display = 'flex';
     dom.diagModal.classList.add('active');
   }
 
@@ -1099,7 +1123,10 @@ document.addEventListener('DOMContentLoaded', () => {
    * 關閉防呆診斷視窗
    */
   function closeDiagnosticsModal() {
-    if (dom.diagModal) dom.diagModal.classList.remove('active');
+    if (dom.diagModal) {
+      dom.diagModal.classList.remove('active');
+      dom.diagModal.style.display = 'none';
+    }
   }
 
   /**

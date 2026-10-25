@@ -549,7 +549,7 @@
   </main>
 
   <!-- 檢核防呆診斷彈出視窗 (Modal) -->
-  <div id="diagnostics-modal" class="modal-overlay">
+  <div id="diagnostics-modal" class="modal-overlay" style="display: none;">
     <div class="glass-panel modal-card">
       <div class="modal-header">
         <div class="modal-title-group">
@@ -559,9 +559,10 @@
             <p>為避免匯入 ee-Class 後題型錯亂或計分錯誤，請先修正以下項目：</p>
           </div>
         </div>
-        <div class="modal-badges">
+        <div class="modal-badges" style="display: flex; align-items: center; gap: 0.5rem;">
           <span class="badge-error" id="modal-err-count">0 項錯誤阻擋</span>
           <span class="badge-warn" id="modal-warn-count">0 項建議</span>
+          <button id="modal-btn-close-x" class="btn-icon" title="關閉視窗" style="font-size: 1.25rem; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; border-radius: var(--radius-full); background: rgba(255,255,255,0.08); border: 1px solid var(--border-glass); color: var(--text-main); cursor: pointer;">&times;</button>
         </div>
       </div>
 
