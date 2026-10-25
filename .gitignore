@@ -1,0 +1,11 @@
+# OS & Temp
+.DS_Store
+Thumbs.db
+*.tmp
+
+# Python
+__pycache__/
+*.pyc
+
+# Local IDE & artifacts
+.system_generated/
