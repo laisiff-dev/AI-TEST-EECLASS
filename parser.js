@@ -167,17 +167,460 @@
   }
 
   /**
-   * 核心解析函數：將整段文字切塊並解析成題目物件陣列
+   * 輔助解析 CSV 行（支援引號逗號跳脫）
    */
-  function parseQuizText(rawText, defaultSectionType = null) {
+  function parseCsvLine(line) {
+    const result = [];
+    let cur = '';
+    let inQuotes = false;
+    for (let i = 0; i < line.length; i++) {
+      const ch = line[i];
+      if (ch === '"') {
+        inQuotes = !inQuotes;
+      } else if (ch === ',' && !inQuotes) {
+        result.push(cur);
+        cur = '';
+      } else {
+        cur += ch;
+      }
+    }
+    result.push(cur);
+    return result.map(s => s.trim().replace(/^"|"$/g, '').trim());
+  }
+
+  /**
+   * 輔助解析解答表區塊（支援 CSV 兩欄/四欄或編號格式）
+   */
+  function parseAnswerTableBlock(tableLines) {
+    const answers = {};
+    for (const line of tableLines) {
+      const trimmed = line.trim();
+      if (!trimmed || trimmed.includes('題號') || trimmed.includes('解答表')) continue;
+
+      const cells = parseCsvLine(trimmed);
+      let foundInCsv = false;
+      for (let k = 0; k < cells.length; k += 2) {
+        if (k + 1 < cells.length) {
+          const qStr = cells[k].trim();
+          const ansStr = cells[k + 1].trim();
+          if (/^\d+$/.test(qStr)) {
+            const m = ansStr.match(/^\s*([A-Da-dOX1-4])/);
+            if (m) {
+              answers[parseInt(qStr, 10)] = m[1].toUpperCase();
+              foundInCsv = true;
+            }
+          }
+        }
+      }
+
+      if (!foundInCsv) {
+        const matches = trimmed.matchAll(/(?:^|[,\s])(\d+)[.、．:\s,]+"?([A-Da-dOX1-4])/g);
+        for (const m of matches) {
+          const qNum = parseInt(m[1], 10);
+          if (!answers[qNum]) {
+            answers[qNum] = m[2].toUpperCase();
+          }
+        }
+      }
+    }
+    return answers;
+  }
+
+  /**
+   * 自由格式題庫智慧規格化與重構函數 (Smart Format Normalizer)
+   * 專門將非標準、自由排版題庫（如 SDGs 永續發展題庫、Word 考卷檔、無序號或併排選項）
+   * 智慧重構為標準期待格式（一、是非題/二、單選題...，(A)...，答案：...，解析：...，[*答案*]）
+   */
+  function normalizeFreeformQuizText(rawText) {
+    if (!rawText || !rawText.trim()) {
+      return {
+        normalizedText: '',
+        detectedCategory: '',
+        stats: { extractedAnswers: 0, splitOptions: 0, convertedBlanks: 0, cleanedHeaders: false, standardizedSections: 0 },
+        summaryMessage: '無輸入文字'
+      };
+    }
+
+    // 1. 基本字元半形化與清理
+    let text = rawText
+      .replace(/\r\n/g, '\n')
+      .replace(/\r/g, '\n')
+      .replace(/[\uFF01-\uFF5E]/g, ch => String.fromCharCode(ch.charCodeAt(0) - 0xFEE0))
+      .replace(/　/g, ' ')
+      .replace(/\*\*/g, '')
+      .replace(/`/g, '');
+
+    const lines = text.split('\n');
+    const outputLines = [];
+    let detectedCategory = '';
+    let cleanedHeaders = false;
+    let extractedAnswers = 0;
+    let splitOptions = 0;
+    let convertedBlanks = 0;
+    let standardizedSections = 0;
+
+    let inIntro = true;
+    let currentSectionType = null;
+    let sectionQIndices = {}; // qNum -> index in outputLines
+
+    let i = 0;
+    while (i < lines.length) {
+      let line = lines[i].trim();
+      if (!line) {
+        outputLines.push('');
+        i++;
+        continue;
+      }
+
+      // 1. 過濾試卷結尾雜訊或延伸建議
+      if (/^(?:🌱\s*後續延伸建議|※?\s*備註|以上題目由|Note:|Hope this helps)/i.test(line)) {
+        break;
+      }
+
+      // 2. 章節 / 類別標題識別（如 📘 2.1 SDGs介紹（15題）或 第2章 ...）
+      const isChapterHeader = /^(?:[📘📗📕📙]+|(?:第[一二三四五六七八九十0-9]+[章單單元節])|(?:\d+\.\d+))\s*(.*)$/i.test(line);
+      if (isChapterHeader && !/^\d+[.、．]/.test(line)) {
+        inIntro = false;
+        let cleanCat = line.replace(/^[📘📗📕📙\s]+|[（(]\d+題[）)]\s*$/g, '').trim();
+        if (cleanCat.length >= 2 && !/^[一二三四五六七八九十0-9]+[、.．\s]+(?:單選|是非|選擇|複選|填|問答|解答)/.test(cleanCat)) {
+          sectionQIndices = {}; // 重置章節題號索引
+          if (!detectedCategory) detectedCategory = cleanCat;
+          outputLines.push(`\n[類別：${cleanCat}]`);
+          i++;
+          continue;
+        }
+      }
+
+      // 3. 過濾試卷資訊雜訊或 AI 說明前言
+      if (inIntro) {
+        if (/^(?:國立|私立|市立|縣立|臺灣|台灣|.*大學|.*學校|.*高中|.*學年度|.*學期|考試時間|測驗時間|時間|姓名|學號|座號|班級|得分|成績|教師|批改|※?\s*作答說明|第\s*\d+\s*頁).*$/i.test(line) ||
+            /(?:已為您|以下為|題目如下|共計\s*\d+\s*題|來源資料|排除非關|聚焦於)/.test(line)) {
+          cleanedHeaders = true;
+          i++;
+          continue;
+        }
+      }
+
+      // 4. 考卷前置主旨識別（若在題前出現）
+      const topicMatch = line.match(/(?:課程|測驗|題庫|考卷|目標)[：:\s]*(.*(?:SDGs|永續發展|環境|通識|基礎|生物|化學|工程|資訊|管理|概論).*)/i) ||
+                         line.match(/(.*(?:SDGs|永續發展).*)/i);
+      if (inIntro && topicMatch && !detectedCategory) {
+        let cleanCat = topicMatch[1].replace(/(?:期末|期中|核心素養|測驗|題庫|考卷|試卷|考試|核心能力)/g, '').trim();
+        cleanCat = cleanCat.replace(/^[：:\s]+|[：:\s]+$/g, '');
+        if (cleanCat.length >= 2 && !/^(?:已為您|以下為)/.test(cleanCat)) {
+          detectedCategory = cleanCat;
+        }
+      }
+
+      // 4. 大題題型標頭識別與標準化
+      const tfSecMatch = line.match(/^【?(?:第?[一二三四五六七八九十0-9]+[、.．\s]+)?(?:是非[判斷對錯]*題|判斷題|對錯題).*?】?$/i);
+      if (tfSecMatch) {
+        inIntro = false;
+        currentSectionType = 'TF';
+        standardizedSections++;
+        outputLines.push('\n一、是非題');
+        i++;
+        continue;
+      }
+
+      const singleSecMatch = line.match(/^【?(?:第?[一二三四五六七八九十0-9]+[、.．\s]+)?(?:單選[測驗選擇]*題|單一選擇題|選擇題).*?】?$/i);
+      if (singleSecMatch) {
+        inIntro = false;
+        currentSectionType = 'SINGLE';
+        standardizedSections++;
+        outputLines.push('\n二、單選題');
+        i++;
+        continue;
+      }
+
+      const multiSecMatch = line.match(/^【?(?:第?[一二三四五六七八九十0-9]+[、.．\s]+)?(?:複選[測驗多重]*題|多選題|多重選擇題).*?】?$/i);
+      if (multiSecMatch) {
+        inIntro = false;
+        currentSectionType = 'MULTI';
+        standardizedSections++;
+        outputLines.push('\n三、複選題');
+        i++;
+        continue;
+      }
+
+      const fillSecMatch = line.match(/^【?(?:第?[一二三四五六七八九十0-9]+[、.．\s]+)?(?:填[充空]+題).*?】?$/i);
+      if (fillSecMatch) {
+        inIntro = false;
+        currentSectionType = 'FILL';
+        standardizedSections++;
+        outputLines.push('\n四、填充題');
+        i++;
+        continue;
+      }
+
+      const essaySecMatch = line.match(/^【?(?:第?[一二三四五六七八九十0-9]+[、.．\s]+)?(?:問答題|簡答題|申論題|計算題).*?】?$/i);
+      if (essaySecMatch) {
+        inIntro = false;
+        currentSectionType = 'ESSAY';
+        standardizedSections++;
+        outputLines.push('\n五、問答題');
+        i++;
+        continue;
+      }
+
+
+      // 6. 集中解答表識別（支援插入於卷中或卷末的 CSV/文字表格）
+      const isAnsTableHeader = /^(?:【\s*(?:解答|參考解答|標準答案|全卷解答|Answer Key)\s*】|(?:解答|參考解答|標準答案|全卷解答|Answer Key)[：:\s]*|(?:[一二三四五六七八九十0-9]+[、.．\s]+)?(?:解答表|參考解答|標準答案|全卷解答|Answer Key).*)$/i.test(line);
+      const isCsvAnsTable = (line.includes('題號') && line.includes('答案')) || /^\d+\s*,\s*\"?[A-Da-dOX1-4]/.test(line);
+
+      if (isAnsTableHeader || isCsvAnsTable) {
+        const tableLines = [];
+        if (!isAnsTableHeader) tableLines.push(line);
+        i++;
+        while (i < lines.length) {
+          const nextLine = lines[i].trim();
+          if (!nextLine) {
+            i++;
+            continue;
+          }
+          if (nextLine.includes('題號') && nextLine.includes('答案')) {
+            tableLines.push(nextLine);
+            i++;
+            continue;
+          }
+          if (/^\d+\s*,\s*\"?[A-Da-dOX1-4]/.test(nextLine) || /^\d+[.、．:\s]+[A-Da-dOX1-4]/.test(nextLine)) {
+            tableLines.push(nextLine);
+            i++;
+          } else {
+            break;
+          }
+        }
+
+        const tableAnswers = parseAnswerTableBlock(tableLines);
+        const inserts = [];
+
+        for (const [qNumStr, ansVal] of Object.entries(tableAnswers)) {
+          const qNum = parseInt(qNumStr, 10);
+          if (sectionQIndices[qNum] !== undefined) {
+            const qIdx = sectionQIndices[qNum];
+            let insertPos = qIdx + 1;
+            while (insertPos < outputLines.length) {
+              const curL = outputLines[insertPos];
+              if (/^\d+[.、．]/.test(curL) || curL.startsWith('[類別：') || curL.startsWith('\n')) {
+                break;
+              }
+              insertPos++;
+            }
+            inserts.push({ pos: insertPos, line: `答案：${ansVal}` });
+            extractedAnswers++;
+          }
+        }
+
+        // 由後往前插入，避免影響前面行號
+        inserts.sort((a, b) => b.pos - a.pos);
+        for (const ins of inserts) {
+          outputLines.splice(ins.pos, 0, ins.line);
+        }
+
+        continue;
+      }
+
+      // 7. 檢查是否為新題目開頭（包含題首帶答案模式）
+      const leadAnsQMatch = line.match(/^[（(\[]\s*([A-Ha-hO○⭕X╳✕✘F是丵否對錯1-6])\s*[）)\]]\s*(?:第?\s*(\d+)\s*題?|\d+)[.、．:：\s]+(.*)$/i);
+      const numLeadAnsQMatch = line.match(/^(?:第?\s*(\d+)\s*題?|(\d+))[.、．:：\s]+[（(\[]\s*([A-Ha-hO○⭕X╳✕✘F是丵否對錯1-6])\s*[）)\]][.、．\s]*(.*)$/i);
+      const standardQMatch = line.match(/^(?:第?\s*(\d+)\s*題?|(\d+)|【\s*(\d+)\s*】|[（(]\s*(\d+)\s*[）)])[.、．:：\s]+(.*)$/i);
+
+      if (leadAnsQMatch) {
+        inIntro = false;
+        const qNum = parseInt(leadAnsQMatch[2], 10);
+        let ans = leadAnsQMatch[1].toUpperCase();
+        if (currentSectionType === 'TF' || /^[O○⭕X╳✕✘F是丵否對錯12]$/.test(ans)) {
+          ans = /^(1|O|○|⭕|T|是|對)$/i.test(ans) ? 'O' : 'X';
+        }
+        sectionQIndices[qNum] = outputLines.length;
+        outputLines.push(`${qNum}. ${leadAnsQMatch[3].trim()}`);
+        outputLines.push(`答案：${ans}`);
+        extractedAnswers++;
+        i++;
+        continue;
+      } else if (numLeadAnsQMatch) {
+        inIntro = false;
+        const qNum = parseInt(numLeadAnsQMatch[1] || numLeadAnsQMatch[2], 10);
+        let ans = numLeadAnsQMatch[3].toUpperCase();
+        if (currentSectionType === 'TF' || /^[O○⭕X╳✕✘F是丵否對錯12]$/.test(ans)) {
+          ans = /^(1|O|○|⭕|T|是|對)$/i.test(ans) ? 'O' : 'X';
+        }
+        sectionQIndices[qNum] = outputLines.length;
+        outputLines.push(`${qNum}. ${numLeadAnsQMatch[4].trim()}`);
+        outputLines.push(`答案：${ans}`);
+        extractedAnswers++;
+        i++;
+        continue;
+      } else if (standardQMatch) {
+        const qDigits = standardQMatch[1] || standardQMatch[2] || standardQMatch[3] || standardQMatch[4];
+        const isLikelyOption = /^[（(]\s*[1-6]\s*[）)]/.test(line) && (currentSectionType === 'SINGLE' || currentSectionType === 'MULTI');
+        if (!isLikelyOption) {
+          inIntro = false;
+          const qNum = parseInt(qDigits, 10);
+          sectionQIndices[qNum] = outputLines.length;
+        }
+      }
+
+      // 檢查題目結尾是否帶有答案括號: 例如 "3. SDGs 的核心精神為... (對)"
+      const tailAnsMatch = line.match(/^(.*?)\s*[（(]\s*([A-Ha-hO○⭕X╳✕✘F是丵否對錯1-6])\s*[）)]\s*$/i);
+      if (tailAnsMatch && !/^\s*(?:答案|解析)/.test(line)) {
+        const stem = tailAnsMatch[1].trim();
+        let ans = tailAnsMatch[2].toUpperCase();
+        if (currentSectionType === 'TF' || /^[O○⭕X╳✕✘F是丵否對錯12]$/i.test(ans)) {
+          ans = /^(1|O|○|⭕|T|是|對)$/i.test(ans) ? 'O' : 'X';
+        }
+        outputLines.push(stem);
+        outputLines.push(`答案：${ans}`);
+        extractedAnswers++;
+        i++;
+        continue;
+      }
+
+      // 8. 填充題格式自動對齊
+      if (currentSectionType === 'FILL' || /(?:_{2,}|________+|（\s*）|\(\s*\))[（(]\s*[^()]+?\s*[）)]/.test(line)) {
+        line = line.replace(/(?:_{2,}|________+|（\s*）|\(\s*\))[（(]\s*([^()]+?)\s*[）)]/g, (m, p1) => {
+          convertedBlanks++;
+          return `[*${p1.trim()}*]`;
+        });
+        if (currentSectionType === 'FILL') {
+          line = line.replace(/【\s*([^【】\n]+?)\s*】/g, (m, p1) => {
+            if (/是非|單選|選擇|複選|多選|填[充空]|問答|簡答|解析|說明|詳解|答案/.test(p1)) return m;
+            convertedBlanks++;
+            return `[*${p1.trim()}*]`;
+          });
+        }
+      }
+
+      // 9. 答案行標籤統一化 (Ans, Answer, Key, 【答案】, 正解：...)
+      const ansKeyMatch = line.match(/^(?:【\s*(?:正確答案|答案|Ans|Answer|Key|正解|解答)\s*】|正確答案|答案|Ans|Answer|Key|正解|解答|答案是)[：:\s]*(.+)$/i);
+      if (ansKeyMatch) {
+        let rawAns = ansKeyMatch[1].trim();
+        if (currentSectionType === 'MULTI') {
+          rawAns = rawAns.replace(/[、\s]+/g, ', ').replace(/[,，]+/g, ', ');
+        }
+        if (/^[1-6]$/.test(rawAns) && currentSectionType !== 'TF') {
+          rawAns = String.fromCharCode(64 + parseInt(rawAns, 10));
+        } else if (currentSectionType === 'TF') {
+          rawAns = /^(1|O|○|⭕|T|是|對)$/i.test(rawAns) ? 'O' : 'X';
+        }
+
+        const inlineExp = rawAns.match(/^(.*?)(?:[；;，,]\s*|\s+)(?:【?(?:解析|詳解|說明|解說|Rationale|Explanation)】?)[：:\s]*(.*)$/i);
+        if (inlineExp) {
+          outputLines.push(`答案：${inlineExp[1].trim()}`);
+          if (inlineExp[2].trim()) outputLines.push(`解析：${inlineExp[2].trim()}`);
+        } else {
+          outputLines.push(`答案：${rawAns}`);
+        }
+        i++;
+        continue;
+      }
+
+      // 10. 解析行標籤統一化
+      const expMatch = line.match(/^(?:【\s*(?:解析|詳解|說明|解說|Rationale|Explanation)\s*】|解析|詳解|說明|解說|Rationale|Explanation)[：:\s]*(.*)$/i);
+      if (expMatch) {
+        outputLines.push(`解析：${expMatch[1].trim()}`);
+        i++;
+        continue;
+      }
+
+      // 11. 同一行多選項拆分（包含附帶來源引用與無空格黏合選項）
+      // 例如: 1(A) 優先滿足... (B) ... 1(C) ... (D) ...
+      // 或 (A) 15項 (B) 16項 (C) 17項 (D) 18項
+      const optMatches = [];
+      const optSplitPattern = /(?:(?:\s*\d+(?:,\s*\d+)*)?\s*|^)(?:[（(\[]([A-Ha-h1-6])[）)\]]|(?:^|\s+)([A-Ha-h])[.、．](?![A-Za-z])|([①②③④⑤⑥]))\s*/g;
+      let om;
+      while ((om = optSplitPattern.exec(line)) !== null) {
+        let rawLabel = om[1] || om[2] || om[3];
+        if (/^[①②③④⑤⑥]$/.test(rawLabel)) {
+          rawLabel = String.fromCharCode(65 + '①②③④⑤⑥'.indexOf(rawLabel));
+        } else if (/^[1-6]$/.test(rawLabel)) {
+          rawLabel = String.fromCharCode(64 + parseInt(rawLabel, 10));
+        } else {
+          rawLabel = rawLabel.toUpperCase();
+        }
+        optMatches.push({ index: om.index, length: om[0].length, label: rawLabel });
+      }
+
+      if (optMatches.length >= 2) {
+        splitOptions += optMatches.length;
+        let prefix = line.substring(0, optMatches[0].index).trim();
+        prefix = prefix.replace(/\s*\d+(?:,\s*\d+)*\s*$/, '');
+        if (prefix) {
+          outputLines.push(prefix);
+        }
+
+        for (let k = 0; k < optMatches.length; k++) {
+          const cur = optMatches[k];
+          const next = (k + 1 < optMatches.length) ? optMatches[k + 1].index : line.length;
+          let optText = line.substring(cur.index + cur.length, next).trim();
+          optText = optText.replace(/\s*\d+(?:,\s*\d+)*\s*$/, '');
+          outputLines.push(`(${cur.label}) ${optText}`);
+        }
+        i++;
+        continue;
+      }
+
+      // 12. 單一獨立選項正規化: 如 A. 選項 或 A、選項 或 ① 選項 或 (1) 選項
+      const singleOptMatch = line.match(/^(?:[（(\[]([A-Ha-h1-6])[）)\]]|([A-Ha-h])[.、．]|([①②③④⑤⑥]))\s*(.*)$/);
+      if (singleOptMatch && (currentSectionType === 'SINGLE' || currentSectionType === 'MULTI' || /^[A-Ha-h①②③④⑤⑥]/.test(line))) {
+        let rawLabel = singleOptMatch[1] || singleOptMatch[2] || singleOptMatch[3];
+        if (/^[①②③④⑤⑥]$/.test(rawLabel)) {
+          rawLabel = String.fromCharCode(65 + '①②③④⑤⑥'.indexOf(rawLabel));
+        } else if (/^[1-6]$/.test(rawLabel)) {
+          rawLabel = String.fromCharCode(64 + parseInt(rawLabel, 10));
+        } else {
+          rawLabel = rawLabel.toUpperCase();
+        }
+        let optText = singleOptMatch[4].trim();
+        optText = optText.replace(/\s*\d+(?:,\s*\d+)*\s*$/, '');
+        outputLines.push(`(${rawLabel}) ${optText}`);
+        i++;
+        continue;
+      }
+
+      // 其它一般文字（題幹延續行）
+      outputLines.push(line);
+      i++;
+    }
+
+    const normalizedText = outputLines.join('\n').replace(/\n{3,}/g, '\n\n').trim();
+    const summary = `自動規格化完成：抽取 ${extractedAnswers} 題答案、拆分/規格化 ${splitOptions} 個選項、轉換 ${convertedBlanks} 個填充標記${cleanedHeaders ? '、過濾考卷標頭' : ''}。`;
+
+    return {
+      normalizedText,
+      detectedCategory,
+      stats: {
+        extractedAnswers,
+        splitOptions,
+        convertedBlanks,
+        cleanedHeaders,
+        standardizedSections
+      },
+      summaryMessage: summary
+    };
+  }
+
+  /**
+   * 核心解析函數：將整段文字切塊並解析成題目物件陣列
+   * 支援第二段式自動規格化選項 (autoNormalize = true)
+   */
+  function parseQuizText(rawText, defaultSectionType = null, options = { autoNormalize: true }) {
     if (!rawText || !rawText.trim()) return [];
 
-    const normalized = normalizeInput(rawText);
+    let textToParse = rawText;
+    let normInfo = null;
+
+    if (options && options.autoNormalize !== false) {
+      normInfo = normalizeFreeformQuizText(rawText);
+      textToParse = normInfo.normalizedText;
+    }
+
+    const normalized = normalizeInput(textToParse);
     const lines = normalized.split('\n');
     const questions = [];
 
     let currentSectionType = defaultSectionType;
-    let currentCategory = '';
+    let currentCategory = (normInfo && normInfo.detectedCategory) ? normInfo.detectedCategory : '';
     let rawBlocks = [];
     let currentBlock = [];
 
@@ -268,8 +711,21 @@
     // 逐塊解析題目
     rawBlocks.forEach((block, blockIndex) => {
       const q = parseSingleBlock(block.lines, block.sectionType, block.category, blockIndex + 1);
-      if (q) questions.push(q);
+      if (q) {
+        if (normInfo && (normInfo.stats.extractedAnswers > 0 || normInfo.stats.splitOptions > 0 || normInfo.stats.convertedBlanks > 0)) {
+          q.wasAutoNormalized = true;
+          q.normalizeReason = normInfo.summaryMessage;
+        }
+        questions.push(q);
+      }
     });
+
+    // 附加規格化元資料供介面調用
+    if (normInfo) {
+      questions.detectedCategory = normInfo.detectedCategory;
+      questions.normalizeStats = normInfo.stats;
+      questions.normalizeSummary = normInfo.summaryMessage;
+    }
 
     return questions;
   }
@@ -702,6 +1158,7 @@
     QuestionType,
     Difficulty,
     normalizeInput,
+    normalizeFreeformQuizText,
     parseTfAnswer,
     parseChoiceAnswer,
     parseMultiChoiceAnswer,

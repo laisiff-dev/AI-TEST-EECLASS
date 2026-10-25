@@ -19,6 +19,57 @@ document.addEventListener('DOMContentLoaded', () => {
     theme: localStorage.getItem('eeclass_theme') || 'dark'
   };
 
+  // SDGs 自由格式真實考卷範例（非標準排版，示範二段式智慧調整）
+  const SAMPLE_SDGS_FREEFORM_TEXT = `國立大學 112學年度 通識教育核心課程：永續發展目標 (SDGs) 期末核心素養測驗
+考試時間：50分鐘   姓名：_____________   學號：_____________
+※ 作答說明：請仔細閱讀題目後作答，題目包含是非題、單選題、複選題、填空題與簡答題。
+
+【一、是非判斷題】
+( O ) 1. 聯合國於2015年9月正式通過「2030永續發展議程」，宣布了17項永續發展目標（SDGs）。
+( X ) 2. SDGs 僅適用於低收入或開發中國家，台灣與歐美等已開發國家無須落實執行。
+3. SDGs 的核心不遺漏精神為「Leave No One Behind」（不遺漏任何人）。 (對)
+4. ( 2 ) SDG 13「氣候行動」僅指減少碳排放，不包含氣候變遷的調適與韌性建構。
+【說明】氣候行動包含減緩（Mitigation）與調適（Adaptation）兩大面向。
+
+【二、單選測驗題】
+( C ) 1. 聯合國宣布的永續發展目標（SDGs）共包含幾項核心目標與具體目標？
+(A) 15項核心目標、150項具體目標  (B) 16項核心目標、160項具體目標  (C) 17項核心目標、169項具體目標  (D) 18項核心目標、172項具體目標
+【解析】SDGs共有17項核心目標 (Goals) 與169項具體目標 (Targets)。
+
+2. 請問「確保所有人都能享有水及衛生及其永續管理」是屬於哪一項SDG？
+A. SDG 4 優質教育
+B. SDG 6 淨水及衛生
+C. SDG 7 可負擔的潔淨能源
+D. SDG 11 永續城鄉
+Ans: B
+
+3. 關於永續發展的三大支柱（Three Pillars of Sustainability），下列何者「不屬於」其中之一？
+(1) 經濟成長  (2) 社會包容  (3) 環境保護  (4) 軍事擴張
+正解：4
+說明：三大支柱為經濟（Economic）、社會（Social）、環境（Environmental）。
+
+【三、多重選擇題】
+1. 下列哪些目標直接與地球自然環境與生態保育密切相關？
+(A) SDG 13 氣候行動
+(B) SDG 14 保育海洋生態
+(C) SDG 15 保育陸域生態
+(D) SDG 10 減少不平等
+答案：A, B, C
+解析：SDG 13、14、15合稱為生物圈（Biosphere）層級的環境目標；SDG 10為社會層級。
+
+2. 企業在推動 ESG 與 SDGs 結合時，常見的「E (Environmental)」環境構面指標包含哪些？
+(A) 溫室氣體盤查與減碳 (B) 水資源管理與循環利用 (C) 董事會多元化 (D) 廢棄物減量與資源再生
+【答案】A、B、D
+【詳解】(C) 董事會多元化屬於 G（Governance 公司治理）範疇。
+
+【四、填空題】
+1. 聯合國 SDGs 的最高核心承諾為__________(不遺漏任何人)（英文為 Leave No One Behind）。
+2. 在永續發展目標中，SDG 7 主張確保所有人都能取得負擔得起、可靠且永續的【潔淨能源】。
+
+【五、簡答題】
+1. 請簡述聯合國提出「SDGs 永續發展目標」的核心目的為何？
+答案：旨在消除貧窮、保護地球環境、促進全球夥伴關係，確保至2030年所有人都能享有和平與繁榮。`;
+
   // 預設 5 大題型全功能範例題庫
   const SAMPLE_AI_TEXT = `# 第一章 環境微生物學基礎與應用
 類別：環境微生物學基礎
@@ -115,6 +166,8 @@ document.addEventListener('DOMContentLoaded', () => {
     rawInput: document.getElementById('raw-quiz-input'),
     charCount: document.getElementById('input-char-count'),
     btnParse: document.getElementById('btn-parse-text'),
+    btnAutoNormalize: document.getElementById('btn-auto-normalize'),
+    btnLoadSdgsSample: document.getElementById('btn-load-sdgs-sample'),
     btnLoadSample: document.getElementById('btn-load-sample'),
     btnClearInput: document.getElementById('btn-clear-input'),
     btnGotoManual: document.getElementById('btn-goto-manual'),
@@ -125,6 +178,13 @@ document.addEventListener('DOMContentLoaded', () => {
     btnApplyGlobalCat: document.getElementById('btn-apply-global-cat'),
 
     // 編輯器區
+    stage2WorkflowBanner: document.getElementById('stage2-workflow-banner'),
+    stage2NormBadge: document.getElementById('stage2-norm-badge'),
+    stage2NormCount: document.getElementById('stage2-norm-count'),
+    stage2BannerDesc: document.getElementById('stage2-banner-desc'),
+    btnFilterAutoNormalized: document.getElementById('btn-filter-auto-normalized'),
+    normFilterBadgeCount: document.getElementById('norm-filter-badge-count'),
+    pillFilterNormalized: document.getElementById('pill-filter-normalized'),
     questionsList: document.getElementById('questions-container'),
     emptyState: document.getElementById('empty-state'),
     filterBtns: document.querySelectorAll('.filter-pill'),
@@ -158,6 +218,7 @@ document.addEventListener('DOMContentLoaded', () => {
     bindEvents();
     loadFromLocalStorage();
     updateStats();
+    updateStage2WorkflowBanner();
     updateCharCount();
   }
 
@@ -249,12 +310,51 @@ document.addEventListener('DOMContentLoaded', () => {
       });
     }
 
+    // 自由格式智慧重構 (Auto-Normalize - 第一階段)
+    if (dom.btnAutoNormalize) {
+      dom.btnAutoNormalize.addEventListener('click', () => {
+        const text = dom.rawInput.value.trim();
+        if (!text) {
+          showToast('請先貼上題目內容或拖曳考題檔！', 'warning');
+          return;
+        }
+        const norm = QuizParser.normalizeFreeformQuizText(text);
+        dom.rawInput.value = norm.normalizedText;
+        updateCharCount();
+        if (norm.detectedCategory && dom.globalCategoryInput && !dom.globalCategoryInput.value.trim()) {
+          dom.globalCategoryInput.value = norm.detectedCategory;
+        }
+        if (norm.stats.extractedAnswers > 0 || norm.stats.splitOptions > 0 || norm.stats.convertedBlanks > 0 || norm.stats.cleanedHeaders) {
+          showToast(`🪄 智慧重構完成！${norm.summaryMessage}`, 'success');
+        } else {
+          showToast('題目格式已十分工整標準！可直接點擊「立即智慧解析並預覽」進入第二階段。', 'info');
+        }
+      });
+    }
+
+    // 載入 SDGs 自由格式題庫範例
+    if (dom.btnLoadSdgsSample) {
+      dom.btnLoadSdgsSample.addEventListener('click', () => {
+        dom.rawInput.value = SAMPLE_SDGS_FREEFORM_TEXT;
+        if (dom.globalCategoryInput) dom.globalCategoryInput.value = '永續發展目標 (SDGs)';
+        updateCharCount();
+        showToast('🌿 已載入「SDGs 永續發展自由格式題庫」！可點擊「🪄 自由格式智慧重構」檢視調整效果，或直接點擊「🚀 立即智慧解析並預覽」體驗二段式校對！', 'info');
+      });
+    }
+
     // 載入範例題目
     if (dom.btnLoadSample) {
       dom.btnLoadSample.addEventListener('click', () => {
         dom.rawInput.value = SAMPLE_AI_TEXT;
         updateCharCount();
         showToast('已載入 5 大題型綜合範例題庫！點擊下方按鈕即可立即解析', 'info');
+      });
+    }
+
+    // 篩選僅看智慧規格化題目
+    if (dom.btnFilterAutoNormalized && dom.pillFilterNormalized) {
+      dom.btnFilterAutoNormalized.addEventListener('click', () => {
+        dom.pillFilterNormalized.click();
       });
     }
 
@@ -479,6 +579,11 @@ document.addEventListener('DOMContentLoaded', () => {
         return;
       }
 
+      // 若檢測出考卷主題，且全域類別為空，自動填入全域類別
+      if (parsed.detectedCategory && dom.globalCategoryInput && !dom.globalCategoryInput.value.trim()) {
+        dom.globalCategoryInput.value = parsed.detectedCategory;
+      }
+
       // 若有全域類別且題目未填類別，自動套用
       const globalCat = dom.globalCategoryInput ? dom.globalCategoryInput.value.trim() : '';
       if (globalCat) {
@@ -490,15 +595,21 @@ document.addEventListener('DOMContentLoaded', () => {
       state.questions = parsed;
       saveToLocalStorage();
       updateStats();
+      updateStage2WorkflowBanner();
       renderQuestionsList();
       switchTab('editor');
 
       // 執行嚴格檢核
       const validation = QuizParser.validateQuestions(state.questions);
+      const normCount = state.questions.filter(q => q.wasAutoNormalized).length;
       if (validation.isValid) {
-        showToast(`🎉 成功解析 ${parsed.length} 道題目！通過 100% 格式防呆檢核！`, 'success');
+        if (normCount > 0) {
+          showToast(`🎉 成功解析 ${parsed.length} 題（其中 ${normCount} 題經第一階段智慧重構自動對齊）！請進行第二階段覆核。`, 'success');
+        } else {
+          showToast(`🎉 成功解析 ${parsed.length} 道題目！通過 100% 格式防呆檢核！`, 'success');
+        }
       } else {
-        showToast(`解析出 ${parsed.length} 道題目，但發現 ${validation.errorCount} 道題目有瑕疵，請在編輯器中校對！`, 'warning');
+        showToast(`解析出 ${parsed.length} 道題目，但發現 ${validation.errorCount} 道題目有瑕疵，請在下方卡片中校對！`, 'warning');
       }
     } catch (err) {
       console.error('Parser error:', err);
@@ -551,6 +662,33 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   /**
+   * 更新第二階段工作流橫幅狀態 (Two-Stage Workflow Banner)
+   */
+  function updateStage2WorkflowBanner() {
+    if (!dom.stage2WorkflowBanner) return;
+    const total = state.questions.length;
+    if (total === 0) {
+      dom.stage2WorkflowBanner.style.display = 'none';
+      return;
+    }
+    dom.stage2WorkflowBanner.style.display = 'flex';
+
+    const normCount = state.questions.filter(q => q.wasAutoNormalized).length;
+    if (dom.stage2NormCount) dom.stage2NormCount.innerText = normCount;
+    if (dom.normFilterBadgeCount) dom.normFilterBadgeCount.innerText = normCount;
+
+    if (dom.stage2BannerDesc) {
+      if (normCount > 0) {
+        dom.stage2BannerDesc.innerHTML = `第一階段智慧重構引擎已自動調整 <strong>${normCount}</strong> 道非標準題目（自題幹括號提取答案、展開併排選項或重構填空標籤）。請在下方卡片中快速手動覆核；若需微調答案、選項或題型，可直接點擊卡片修改，零瑕疵確認後即可安心匯出！`;
+        if (dom.stage2NormBadge) dom.stage2NormBadge.style.display = 'inline-flex';
+      } else {
+        dom.stage2BannerDesc.innerHTML = `所有題目格式皆完全標準！請在下方卡片快速檢視確認，若需微調可隨時修改，確認無誤後即可點擊右上角匯出 ee-Class 官方 CSV 或 Big5 副本。`;
+        if (dom.stage2NormBadge) dom.stage2NormBadge.style.display = 'none';
+      }
+    }
+  }
+
+  /**
    * 渲染題目預覽卡片清單
    */
   function renderQuestionsList() {
@@ -564,6 +702,7 @@ document.addEventListener('DOMContentLoaded', () => {
       if (state.currentFilter === 'multi' && q.type !== 3) return false;
       if (state.currentFilter === 'fill' && q.type !== 4) return false;
       if (state.currentFilter === 'essay' && q.type !== 5) return false;
+      if (state.currentFilter === 'normalized' && !q.wasAutoNormalized) return false;
       if (state.currentFilter === 'warning') {
         const hasAns = (q.type === 1 && (q.answer === 1 || q.answer === 2)) ||
                        (q.type === 2 && q.answer >= 1 && q.answer <= (q.options ? q.options.length : 0)) ||
@@ -634,10 +773,17 @@ document.addEventListener('DOMContentLoaded', () => {
     header.innerHTML = `
       <div class="q-card-title-group">
         <span class="q-num-badge">#${q.index || displayIndex}</span>
-        <span class="badge-type ${typeClass}">${typeName}</span>
+        <select class="q-type-select" title="點擊切換題型">
+          <option value="1" ${q.type === 1 ? 'selected' : ''}>是非題</option>
+          <option value="2" ${q.type === 2 ? 'selected' : ''}>單選題</option>
+          <option value="3" ${q.type === 3 ? 'selected' : ''}>複選題</option>
+          <option value="4" ${q.type === 4 ? 'selected' : ''}>填充題</option>
+          <option value="5" ${q.type === 5 ? 'selected' : ''}>問答題</option>
+        </select>
         <div class="card-category-field" title="所屬類別 / 章節名稱">
           🏷️ <input type="text" class="card-cat-input" value="${escapeHtml(q.category || '')}" placeholder="無類別（點此輸入）" style="background:transparent; border:none; border-bottom:1px dashed rgba(255,255,255,0.2); color:var(--text-muted); font-size:0.8rem; width:130px;">
         </div>
+        ${q.wasAutoNormalized ? `<span class="badge-auto-normalized" title="${escapeHtml(q.normalizeReason || '經第一階段智慧重構自動對齊，請手動確認')}">🪄 智慧規格化</span>` : ''}
         ${hasError ? `<span class="badge-status-error" title="${errorMsg}">⚠️ ${errorMsg}</span>` : ''}
       </div>
       <div class="q-card-actions">
@@ -647,6 +793,38 @@ document.addEventListener('DOMContentLoaded', () => {
         <button class="btn-icon btn-delete" title="刪除題目">🗑️</button>
       </div>
     `;
+
+    // 題型即時切換
+    const typeSelect = header.querySelector('.q-type-select');
+    if (typeSelect) {
+      typeSelect.addEventListener('change', (e) => {
+        const newType = parseInt(e.target.value, 10);
+        q.type = newType;
+        if (newType === 1) { // 是非題
+          q.options = [];
+          if (q.answer !== 1 && q.answer !== 2) q.answer = null;
+        } else if (newType === 2 || newType === 3) { // 選擇題
+          if (!q.options || q.options.length < 2) {
+            q.options = ['選項 A', '選項 B', '選項 C', '選項 D'];
+          }
+          if (newType === 2 && (typeof q.answer !== 'number' || q.answer < 1)) q.answer = 1;
+          if (newType === 3 && typeof q.answer !== 'string') q.answer = '1';
+        } else if (newType === 4) { // 填充題
+          q.options = [];
+          q.answer = '';
+          if (!/\[\*([^*]+)\*\]/.test(q.stem)) {
+            q.stem += ' [*答案*]';
+          }
+        } else if (newType === 5) { // 問答題
+          q.options = [];
+        }
+        saveToLocalStorage();
+        updateStats();
+        updateStage2WorkflowBanner();
+        renderQuestionsList();
+        showToast(`已將第 ${displayIndex} 題切換為「${e.target.options[e.target.selectedIndex].text}」`, 'info');
+      });
+    }
 
     // 類別即時編輯
     const catInput = header.querySelector('.card-cat-input');

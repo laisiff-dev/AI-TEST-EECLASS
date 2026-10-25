@@ -178,11 +178,17 @@
               原始題目文字編輯區 (支援 5 大題型：是非、單選、複選、填充、問答)
             </h2>
             <div class="input-helpers">
-              <button id="btn-goto-manual" class="btn btn-secondary btn-sm" title="查閱完整匯入格式規範手冊與常見錯誤對照">
-                📖 規範手冊
+              <button id="btn-auto-normalize" class="btn btn-secondary btn-sm" title="【第一階段】將非標準自由排版題目（如SDGs、括號答案、併排選項、底線填空）一鍵重構調整為期待格式" style="background: linear-gradient(135deg, rgba(168, 85, 247, 0.2), rgba(59, 130, 246, 0.2)); border: 1px solid rgba(168, 85, 247, 0.4); color: #e9d5ff;">
+                🪄 自由格式智慧重構
+              </button>
+              <button id="btn-load-sdgs-sample" class="btn btn-secondary btn-sm" title="載入真實非標準排版的 SDGs 永續發展測驗題庫，體驗智慧重構與二段式修正">
+                🌿 載入 SDGs 自由題庫
               </button>
               <button id="btn-load-sample" class="btn btn-secondary btn-sm" title="載入 5 大題型綜合範例題庫">
                 📚 載入 5 大題型範例
+              </button>
+              <button id="btn-goto-manual" class="btn btn-secondary btn-sm" title="查閱完整匯入格式規範手冊與常見錯誤對照">
+                📖 規範手冊
               </button>
               <button id="btn-clear-input" class="btn btn-secondary btn-sm" title="清空文字">
                 🧹 清空
@@ -291,6 +297,25 @@
 
     <!-- ==================== TAB 2: 題目預覽與編輯區 ==================== -->
     <section id="tab-editor" class="tab-content">
+      <!-- 二段式人機協同核對與校正提示列 (Two-Stage Workflow Confirmation Banner) -->
+      <div id="stage2-workflow-banner" class="glass-panel stage2-workflow-banner">
+        <div class="stage2-banner-icon">🪄</div>
+        <div class="stage2-banner-info">
+          <div class="stage2-banner-title">
+            <strong>二段式修正進行中：第二階段（人機協同手動核對與確認）</strong>
+            <span id="stage2-norm-badge" class="badge-auto-normalized">系統已自動調整至期待格式</span>
+          </div>
+          <div class="stage2-banner-desc" id="stage2-banner-desc">
+            系統第一階段已智慧辨識自由題庫並自動調整題型與答案。請在下方卡片中快速瀏覽確認；如需微調答案、選項或題型，可直接點擊卡片修改，零瑕疵確認後即可安心匯出！
+          </div>
+        </div>
+        <div class="stage2-banner-actions">
+          <button id="btn-filter-auto-normalized" class="btn btn-secondary btn-sm" title="僅查看經系統第一階段智慧規格化自動調整的題目">
+            🔍 僅篩選智慧調整題目 (<span id="stage2-norm-count">0</span>)
+          </button>
+        </div>
+      </div>
+
       <!-- 編輯器工具列 -->
       <div class="glass-panel editor-toolbar">
         <div class="filter-group">
@@ -300,6 +325,7 @@
           <button class="filter-pill" data-filter="multi">複選題</button>
           <button class="filter-pill" data-filter="fill">填充題</button>
           <button class="filter-pill" data-filter="essay">問答題</button>
+          <button class="filter-pill filter-pill-norm" data-filter="normalized" id="pill-filter-normalized">🪄 智慧規格化 (<span id="norm-filter-badge-count">0</span>)</button>
           <button class="filter-pill" data-filter="warning">待修正 (未設答案)</button>
         </div>
 
@@ -357,6 +383,41 @@
                 <strong>雙編碼雙輸出</strong>
                 <span>UTF-8 BOM (新) + Big5 (舊)</span>
               </div>
+            </div>
+          </div>
+        <!-- 二段式修正工作流專題介紹 (Two-Stage Normalization & Review Workflow) -->
+        <div class="glass-panel rules-summary-card" style="border-left: 4px solid #a855f7;">
+          <h3 class="manual-section-title" style="color: #c084fc;">
+            🪄 二段式智慧修正工作流：自由檔案（如 SDGs 永續發展題庫）自動調整至規範格式
+          </h3>
+          <p style="color: var(--text-muted); font-size: 0.9rem; line-height: 1.6; margin-bottom: 1rem;">
+            面對老師手邊格式各異、非標準排版的自由考卷檔案（例如 Word 考卷、網路截取試題、或者如 <strong>SDGs 永續發展核心測驗題庫</strong> 常見的題首括號答案 <code>( C ) 1. 題目</code>、併排選項、底線填空等），本系統採用高效的<strong>「二段式人機協同修正機制」</strong>：
+          </p>
+          <div class="two-stage-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1rem; margin-bottom: 1rem;">
+            <div style="background: rgba(168, 85, 247, 0.08); border: 1px solid rgba(168, 85, 247, 0.25); border-radius: var(--radius-md); padding: 1.25rem;">
+              <h4 style="color: #d8b4fe; margin-bottom: 0.5rem; display: flex; align-items: center; gap: 0.5rem;">
+                <span style="background: #a855f7; color: white; border-radius: 50%; width: 24px; height: 24px; display: inline-flex; align-items: center; justify-content: center; font-size: 0.8rem;">1</span>
+                第一階段：系統自動規格化與重構調整
+              </h4>
+              <ul style="color: var(--text-muted); font-size: 0.85rem; line-height: 1.6; padding-left: 1.2rem;">
+                <li><strong>過濾試卷雜訊</strong>：自動剔除考卷標頭、姓名學號、考試時間與作答說明。</li>
+                <li><strong>自動提取類別</strong>：自標題自動辨識主旨（如 <code>永續發展目標 (SDGs)</code>）並套用為題庫類別。</li>
+                <li><strong>答案智慧抽取</strong>：自動識別題首 <code>( C ) 1.</code>、題中 <code>1. ( C )</code>、題末 <code>(對)</code>、<code>Ans: B</code> 或 <code>【答案】</code> 並提取為標準答案欄。</li>
+                <li><strong>選項自動拆分</strong>：將同行併排的 <code>(A) ... (B) ...</code> 或 <code>①②③④</code> 自動展開為規範選項。</li>
+                <li><strong>填充題標記重構</strong>：將底線 <code>_______(答案)</code> 或 <code>【答案】</code> 自動轉為標準 <code>[*答案*]</code>。</li>
+              </ul>
+            </div>
+            <div style="background: rgba(59, 130, 246, 0.08); border: 1px solid rgba(59, 130, 246, 0.25); border-radius: var(--radius-md); padding: 1.25rem;">
+              <h4 style="color: #93c5fd; margin-bottom: 0.5rem; display: flex; align-items: center; gap: 0.5rem;">
+                <span style="background: #3b82f6; color: white; border-radius: 50%; width: 24px; height: 24px; display: inline-flex; align-items: center; justify-content: center; font-size: 0.8rem;">2</span>
+                第二階段：可視化人機協同手動修正與確認
+              </h4>
+              <ul style="color: var(--text-muted); font-size: 0.85rem; line-height: 1.6; padding-left: 1.2rem;">
+                <li><strong>智慧調整醒目標識</strong>：經自動重構的題目帶有 <span class="badge-auto-normalized">🪄 智慧規格化</span> 徽章，方便重點覆核。</li>
+                <li><strong>題型一鍵即時切換</strong>：可在每題卡片透過下拉選單自由變更是非/單選/複選/填充/問答。</li>
+                <li><strong>視覺化交互修改</strong>：點擊 Radio/Checkbox 即可變更正解；填充題支援一鍵把選取字轉成空格標籤。</li>
+                <li><strong>即時防呆零阻擋保證</strong>：手動微調後即時通過嚴格檢核，點擊右上角一鍵匯出符合 ee-Class 標準的 CSV 檔！</li>
+              </ul>
             </div>
           </div>
         </div>

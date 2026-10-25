@@ -21,6 +21,7 @@ import sys
 import os
 import re
 import csv
+import io
 import argparse
 import unicodedata
 import zipfile
@@ -173,17 +174,319 @@ def split_inline_options(line: str):
         options.append({'letter': raw_letter, 'text': opt_text})
     return {'prefix': prefix, 'options': options}
 
-def parse_quiz_text(raw_text: str, default_section_type=None):
-    """解析題目文字，支援 5 大題型與類別標註"""
+def parse_answer_table_block(table_lines):
+    """解析解答表區塊，支援 CSV 兩欄/四欄或編號格式"""
+    answers = {}
+    for line in table_lines:
+        trimmed = line.strip()
+        if not trimmed or '題號' in trimmed or '解答表' in trimmed:
+            continue
+        try:
+            reader = csv.reader(io.StringIO(trimmed))
+            for row in reader:
+                for k in range(0, len(row), 2):
+                    if k + 1 < len(row):
+                        q_str = row[k].strip()
+                        ans_str = row[k+1].strip()
+                        if q_str.isdigit():
+                            m = re.match(r'^\s*([A-Da-dOX1-4])', ans_str)
+                            if m:
+                                answers[int(q_str)] = m.group(1).upper()
+        except Exception:
+            pass
+
+        if not answers:
+            matches = re.finditer(r'(?:^|[,\s])(\d+)[.、．:\s,]+"?([A-Da-dOX1-4])', trimmed)
+            for m in matches:
+                q_num = int(m.group(1))
+                if q_num not in answers:
+                    answers[q_num] = m.group(2).upper()
+    return answers
+
+def normalize_freeform_quiz_text(raw_text: str):
+    """將自由排版考題（如 SDGs 題庫、Word 考卷、無序號或併排選項）規格化為標準期待格式"""
+    if not raw_text or not raw_text.strip():
+        return raw_text, ""
+
+    text = unicodedata.normalize('NFKC', raw_text)
+    text = re.sub(r'\r\n', '\n', text)
+    text = re.sub(r'\r', '\n', text)
+    text = re.sub(r'\*\*', '', text)
+    text = re.sub(r'`', '', text)
+
+    lines = text.split('\n')
+    output_lines = []
+    detected_category = ""
+    in_intro = True
+    current_section = None
+    section_q_indices = {}  # q_num -> index in output_lines
+
+    i = 0
+    while i < len(lines):
+        line = lines[i].strip()
+        if not line:
+            output_lines.append("")
+            i += 1
+            continue
+
+        # 1. 過濾試卷結尾雜訊或延伸建議
+        if re.match(r'^(?:🌱\s*後續延伸建議|※?\s*備註|以上題目由|Note:|Hope this helps)', line, re.IGNORECASE):
+            break
+
+        # 2. 章節 / 類別標題識別（如 📘 2.1 SDGs介紹（15題）或 第2章 ...）
+        is_chapter = bool(re.match(r'^(?:[📘📗📕📙]+|(?:第[一二三四五六七八九十0-9]+[章單單元節])|(?:\d+\.\d+))\s*(.*)$', line))
+        if is_chapter and not re.match(r'^\d+[.、．]', line):
+            in_intro = False
+            clean_cat = re.sub(r'^[📘📗📕📙\s]+|[（(]\d+題[）)]\s*$', '', line).strip()
+            if len(clean_cat) >= 2 and not re.match(r'^[一二三四五六七八九十0-9]+[、.．\s]+(?:單選|是非|選擇|複選|填|問答|解答)', clean_cat):
+                section_q_indices = {}  # 重置章節題號索引
+                if not detected_category:
+                    detected_category = clean_cat
+                output_lines.append(f"\n[類別：{clean_cat}]")
+                i += 1
+                continue
+
+        # 3. 過濾試卷資訊雜訊或 AI 說明前言
+        if in_intro:
+            if re.match(r'^(?:國立|私立|市立|縣立|臺灣|台灣|.*大學|.*學校|.*高中|.*學年度|.*學期|考試時間|測驗時間|時間|姓名|學號|座號|班級|得分|成績|教師|批改|※?\s*作答說明|第\s*\d+\s*頁).*$', line, re.IGNORECASE) or \
+               re.search(r'(?:已為您|以下為|題目如下|共計\s*\d+\s*題|來源資料|排除非關|聚焦於)', line):
+                i += 1
+                continue
+
+        # 4. 考卷前置主旨識別（若在題前出現）
+        topic_match = re.search(r'(?:課程|測驗|題庫|考卷|目標)[：:\s]*(.*(?:SDGs|永續發展|環境|通識|基礎|生物|化學|工程|資訊|管理|概論).*)', line, re.IGNORECASE) or \
+                      re.search(r'(.*(?:SDGs|永續發展).*)', line, re.IGNORECASE)
+        if in_intro and topic_match and not detected_category:
+            clean_cat = re.sub(r'(?:期末|期中|核心素養|測驗|題庫|考卷|試卷|考試|核心能力)', '', topic_match.group(1)).strip(' ：:\t')
+            if len(clean_cat) >= 2 and not re.match(r'^(?:已為您|以下為)', clean_cat):
+                detected_category = clean_cat
+
+        # 5. 大題題型標頭識別與標準化
+        if re.search(r'^【?(?:第?[一二三四五六七八九十0-9]+[、.．\s]+)?(?:是非[判斷對錯]*題|判斷題|對錯題).*?】?$', line):
+            in_intro = False
+            current_section = 'TF'
+            output_lines.append("\n一、是非題")
+            i += 1
+            continue
+        if re.search(r'^【?(?:第?[一二三四五六七八九十0-9]+[、.．\s]+)?(?:單選[測驗選擇]*題|單一選擇題|選擇題).*?】?$', line):
+            in_intro = False
+            current_section = 'SINGLE'
+            output_lines.append("\n二、單選題")
+            i += 1
+            continue
+        if re.search(r'^【?(?:第?[一二三四五六七八九十0-9]+[、.．\s]+)?(?:複選[測驗多重]*題|多選題|多重選擇題).*?】?$', line):
+            in_intro = False
+            current_section = 'MULTI'
+            output_lines.append("\n三、複選題")
+            i += 1
+            continue
+        if re.search(r'^【?(?:第?[一二三四五六七八九十0-9]+[、.．\s]+)?(?:填[充空]+題).*?】?$', line):
+            in_intro = False
+            current_section = 'FILL'
+            output_lines.append("\n四、填充題")
+            i += 1
+            continue
+        if re.search(r'^【?(?:第?[一二三四五六七八九十0-9]+[、.．\s]+)?(?:問答題|簡答題|申論題|計算題).*?】?$', line):
+            in_intro = False
+            current_section = 'ESSAY'
+            output_lines.append("\n五、問答題")
+            i += 1
+            continue
+
+        # 6. 集中解答表識別（支援插入於卷中或卷末的 CSV/文字表格）
+        is_ans_table_header = bool(re.search(r'^(?:【\s*(?:解答|參考解答|標準答案|全卷解答|Answer Key)\s*】|(?:解答|參考解答|標準答案|全卷解答|Answer Key)[：:\s]*|(?:[一二三四五六七八九十0-9]+[、.．\s]+)?(?:解答表|參考解答|標準答案|全卷解答|Answer Key).*)$', line, re.IGNORECASE))
+        is_csv_ans_table = ('題號' in line and '答案' in line) or bool(re.match(r'^\d+\s*,\s*\"?[A-Da-dOX1-4]', line))
+
+        if is_ans_table_header or is_csv_ans_table:
+            table_lines = []
+            if not is_ans_table_header:
+                table_lines.append(line)
+            i += 1
+            while i < len(lines):
+                next_line = lines[i].strip()
+                if not next_line:
+                    i += 1
+                    continue
+                if '題號' in next_line and '答案' in next_line:
+                    table_lines.append(next_line)
+                    i += 1
+                    continue
+                if re.match(r'^\d+\s*,\s*\"?[A-Da-dOX1-4]', next_line) or re.match(r'^\d+[.、．:\s]+[A-Da-dOX1-4]', next_line):
+                    table_lines.append(next_line)
+                    i += 1
+                else:
+                    break
+
+            table_answers = parse_answer_table_block(table_lines)
+            inserts = []
+
+            for q_num, ans_val in table_answers.items():
+                if q_num in section_q_indices:
+                    q_idx = section_q_indices[q_num]
+                    insert_pos = q_idx + 1
+                    while insert_pos < len(output_lines):
+                        cur_l = output_lines[insert_pos]
+                        if re.match(r'^\d+[.、．]', cur_l) or cur_l.startswith('[類別：') or cur_l.startswith('\n'):
+                            break
+                        insert_pos += 1
+                    inserts.append((insert_pos, f"答案：{ans_val}"))
+
+            inserts.sort(key=lambda x: x[0], reverse=True)
+            for pos, ans_line in inserts:
+                output_lines.insert(pos, ans_line)
+
+            continue
+
+        # 7. 檢查是否為新題目開頭（包含題首帶答案模式）
+        lead_ans_match = re.match(r'^[（(\[]\s*([A-Ha-hO○⭕X╳✕✘F是丵否對錯1-6])\s*[）)\]]\s*(?:第?\s*(\d+)\s*題?|\d+)[.、．:：\s]+(.*)$', line, re.IGNORECASE)
+        num_lead_match = re.match(r'^(?:第?\s*(\d+)\s*題?|(\d+))[.、．:：\s]+[（(\[]\s*([A-Ha-hO○⭕X╳✕✘F是丵否對錯1-6])\s*[）)\]][.、．\s]*(.*)$', line, re.IGNORECASE)
+        standard_q_match = re.match(r'^(?:第?\s*(\d+)\s*題?|(\d+)|【\s*(\d+)\s*】|[（(]\s*(\d+)\s*[）)])[.、．:：\s]+(.*)$', line, re.IGNORECASE)
+
+        if lead_ans_match:
+            in_intro = False
+            current_q_num = int(lead_ans_match.group(2))
+            ans = lead_ans_match.group(1).upper()
+            if current_section == 'TF' or ans in 'OXTF是否對錯12':
+                ans = 'O' if ans in '1OT是丵對' else 'X'
+            section_q_indices[current_q_num] = len(output_lines)
+            output_lines.append(f"{current_q_num}. {lead_ans_match.group(3).strip()}")
+            output_lines.append(f"答案：{ans}")
+            i += 1
+            continue
+        elif num_lead_match:
+            in_intro = False
+            current_q_num = int(num_lead_match.group(1) or num_lead_match.group(2))
+            ans = num_lead_match.group(3).upper()
+            if current_section == 'TF' or ans in 'OXTF是否對錯12':
+                ans = 'O' if ans in '1OT是丵對' else 'X'
+            section_q_indices[current_q_num] = len(output_lines)
+            output_lines.append(f"{current_q_num}. {num_lead_match.group(4).strip()}")
+            output_lines.append(f"答案：{ans}")
+            i += 1
+            continue
+        elif standard_q_match:
+            q_digits = standard_q_match.group(1) or standard_q_match.group(2) or standard_q_match.group(3) or standard_q_match.group(4)
+            is_likely_option = bool(re.match(r'^[（(]\s*[1-6]\s*[）)]', line) and (current_section in ['SINGLE', 'MULTI']))
+            if not is_likely_option:
+                in_intro = False
+                current_q_num = int(q_digits)
+                section_q_indices[current_q_num] = len(output_lines)
+
+        # 檢查題尾答案
+        tail_ans = re.match(r'^(.*?)\s*[（(]\s*([A-Ha-hO○⭕X╳✕✘F是丵否對錯1-6])\s*[）)]\s*$', line, re.IGNORECASE)
+        if tail_ans and not re.match(r'^\s*(?:答案|解析)', line):
+            stem = tail_ans.group(1).strip()
+            ans = tail_ans.group(2).upper()
+            if current_section == 'TF' or ans in 'OXTF是否對錯12':
+                ans = 'O' if ans in '1OT是丵對' else 'X'
+            output_lines.append(stem)
+            output_lines.append(f"答案：{ans}")
+            i += 1
+            continue
+
+        # 8. 填充題格式自動對齊
+        if current_section == 'FILL' or re.search(r'(?:_{2,}|________+|（\s*）|\(\s*\))[（(]\s*[^()]+?\s*[）)]', line):
+            line = re.sub(r'(?:_{2,}|________+|（\s*）|\(\s*\))[（(]\s*([^()]+?)\s*[）)]', r'[*\1*]', line)
+            if current_section == 'FILL':
+                def repl_bracket(m):
+                    content = m.group(1)
+                    if re.search(r'是非|單選|選擇|複選|多選|填[充空]|問答|簡答|解析|說明|詳解|答案', content):
+                        return m.group(0)
+                    return f"[*{content}*]"
+                line = re.sub(r'【\s*([^【】\n]+?)\s*】', repl_bracket, line)
+
+        # 9. 答案行
+        ans_key_match = re.match(r'^(?:【\s*(?:正確答案|答案|Ans|Answer|Key|正解|解答)\s*】|正確答案|答案|Ans|Answer|Key|正解|解答|答案是)[：:\s]*(.+)$', line, re.IGNORECASE)
+        if ans_key_match:
+            raw_ans = ans_key_match.group(1).strip()
+            if current_section == 'MULTI':
+                raw_ans = re.sub(r'[、\s]+', ', ', raw_ans)
+                raw_ans = re.sub(r'[,，]+', ', ', raw_ans)
+
+            if re.match(r'^[1-6]$', raw_ans) and current_section != 'TF':
+                raw_ans = chr(ord('A') + int(raw_ans) - 1)
+            elif current_section == 'TF':
+                raw_ans = 'O' if raw_ans in '1OT是丵對' else 'X'
+
+            inline_exp = re.match(r'^(.*?)(?:[；;，,]\s*|\s+)(?:【?(?:解析|詳解|說明|解說|Rationale|Explanation)】?)[：:\s]*(.*)$', raw_ans, re.IGNORECASE)
+            if inline_exp:
+                output_lines.append(f"答案：{inline_exp.group(1).strip()}")
+                if inline_exp.group(2).strip():
+                    output_lines.append(f"解析：{inline_exp.group(2).strip()}")
+            else:
+                output_lines.append(f"答案：{raw_ans}")
+            i += 1
+            continue
+
+        # 10. 解析行
+        exp_match = re.match(r'^(?:【\s*(?:解析|詳解|說明|解說|Rationale|Explanation)\s*】|解析|詳解|說明|解說|Rationale|Explanation)[：:\s]*(.*)$', line, re.IGNORECASE)
+        if exp_match:
+            output_lines.append(f"解析：{exp_match.group(1).strip()}")
+            i += 1
+            continue
+
+        # 11. 同一行多選項拆分（包含附帶來源引用與無空格黏合選項）
+        # 例如: 1(A) 優先滿足... (B) ... 1(C) ... (D) ...
+        opt_matches = list(re.finditer(r'(?:(?:\s*\d+(?:,\s*\d+)*)?\s*|^)(?:[（(\[]([A-Ha-h1-6])[）)\]]|(?:^|\s+)([A-Ha-h])[.、．](?![A-Za-z])|([①②③④⑤⑥]))\s*', line))
+        if len(opt_matches) >= 2:
+            prefix = line[:opt_matches[0].start()].strip()
+            prefix = re.sub(r'\s*\d+(?:,\s*\d+)*\s*$', '', prefix)
+            if prefix:
+                output_lines.append(prefix)
+            for k, cur in enumerate(opt_matches):
+                nxt = opt_matches[k+1].start() if k + 1 < len(opt_matches) else len(line)
+                opt_txt = line[cur.end():nxt].strip()
+                opt_txt = re.sub(r'\s*\d+(?:,\s*\d+)*\s*$', '', opt_txt)
+                lbl = cur.group(1) or cur.group(2) or cur.group(3)
+                if lbl in '①②③④⑤⑥':
+                    lbl = chr(ord('A') + '①②③④⑤⑥'.index(lbl))
+                elif re.match(r'^[1-6]$', lbl):
+                    lbl = chr(ord('A') + int(lbl) - 1)
+                else:
+                    lbl = lbl.upper()
+                output_lines.append(f"({lbl}) {opt_txt}")
+            i += 1
+            continue
+
+        # 12. 單一獨立選項
+        single_opt = re.match(r'^(?:[（(\[]([A-Ha-h1-6])[）)\]]|([A-Ha-h])[.、．]|([①②③④⑤⑥]))\s*(.*)$', line)
+        if single_opt and (current_section in ['SINGLE', 'MULTI'] or re.match(r'^[A-Ha-h①②③④⑤⑥]', line)):
+            lbl = single_opt.group(1) or single_opt.group(2) or single_opt.group(3)
+            if lbl in '①②③④⑤⑥':
+                lbl = chr(ord('A') + '①②③④⑤⑥'.index(lbl))
+            elif re.match(r'^[1-6]$', lbl):
+                lbl = chr(ord('A') + int(lbl) - 1)
+            else:
+                lbl = lbl.upper()
+            opt_txt = single_opt.group(4).strip()
+            opt_txt = re.sub(r'\s*\d+(?:,\s*\d+)*\s*$', '', opt_txt)
+            output_lines.append(f"({lbl}) {opt_txt}")
+            i += 1
+            continue
+
+        output_lines.append(line)
+        i += 1
+
+    normalized_text = re.sub(r'\n{3,}', '\n\n', "\n".join(output_lines)).strip()
+    return normalized_text, detected_category
+
+def parse_quiz_text(raw_text: str, default_section_type=None, auto_normalize=True):
+    """解析題目文字，支援 5 大題型、類別標註與自由格式自動規格化"""
     if not raw_text or not raw_text.strip():
         return []
+
+    current_category = ""
+    if auto_normalize:
+        norm_text, det_cat = normalize_freeform_quiz_text(raw_text)
+        raw_text = norm_text
+        if det_cat:
+            current_category = det_cat
 
     normalized = normalize_text(raw_text)
     lines = normalized.split('\n')
     questions = []
 
     current_section = default_section_type
-    current_category = ""
     raw_blocks = []
     current_block = []
 

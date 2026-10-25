@@ -32,7 +32,10 @@
 5. **🛡️ 嚴格檢核防呆與阻擋機制 (Strict Validation & Blocking Engine)**：
    - 匯出前全方位自動檢核：題幹是否空白、是否缺少答案、單選/複選選項是否少於 2 個、答案是否超出選項字母、填充題是否包含 `[*...*]` 標記。
    - 若有瑕疵即時彈出診斷清單並阻擋匯出，確保所匯出之檔案在 ee-Class 100% 成功匯入，零瑕疵保證！
-6. **🤖 遵循 Agent Skills 開放標準 (`skill/exam-to-qb/`)**：
+6. **🪄 二段式智慧修正工作流 (Two-Stage Adaptive Correction & Freeform Alignment)**：
+   - **第一階段（機器智慧預處理）**：自由輸入非標準格式（如 **SDGs 永續發展測驗題庫**、Word 考卷、無序號題目、題首括號答案 `( C ) 1.`、同行併排選項、底線填空 `_____(答案)`），系統自動規格化重構為標準期待格式，自動抽取答案、拆分選項與提取章節！
+   - **第二階段（人機協同手動確認）**：在卡片中即時切換 5 大題型、手動點選 Radio/Checkbox 變更答案、填空題一鍵插入 `[*空格*]` 標籤，確認無誤後 100% 安全匯出！
+7. **🤖 遵循 Agent Skills 開放標準 (`skill/exam-to-qb/`)**：
    - 本專案內附相容 Agent Skills 開放標準之技能套件，可直接掛載於 **Claude Code** (`~/.claude/skills/`)、**OpenAI Codex** (`~/.agents/skills/`) 與 **Gemini CLI / Antigravity**。
 
 ---
