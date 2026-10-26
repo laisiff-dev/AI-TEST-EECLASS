@@ -16,6 +16,7 @@ document.addEventListener('DOMContentLoaded', () => {
     currentFilter: 'all',
     searchQuery: '',
     globalCategory: '',
+    fontSize: localStorage.getItem('eeclass_font_size') || 'md',
     theme: localStorage.getItem('eeclass_theme') || 'dark'
   };
 
@@ -190,6 +191,8 @@ Ans: B
     filterBtns: document.querySelectorAll('.filter-pill'),
     searchInput: document.getElementById('search-questions-input'),
     btnAddQuestion: document.getElementById('btn-add-question'),
+    btnClearQuestions: document.getElementById('btn-clear-questions'),
+    fontSizeBtns: document.querySelectorAll('.btn-font-size'),
 
     // 匯出按鈕
     btnExportCsv: document.getElementById('btn-export-csv'),
@@ -215,11 +218,29 @@ Ans: B
    */
   function init() {
     applyTheme(state.theme);
+    applyFontSize(state.fontSize);
     bindEvents();
     loadFromLocalStorage();
     updateStats();
     updateStage2WorkflowBanner();
     updateCharCount();
+  }
+
+  /**
+   * 套用題目顯示字型大小
+   */
+  function applyFontSize(size) {
+    state.fontSize = size;
+    localStorage.setItem('eeclass_font_size', size);
+    if (dom.questionsList) {
+      dom.questionsList.classList.remove('font-size-sm', 'font-size-md', 'font-size-lg', 'font-size-xl');
+      dom.questionsList.classList.add(`font-size-${size}`);
+    }
+    if (dom.fontSizeBtns) {
+      dom.fontSizeBtns.forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.size === size);
+      });
+    }
   }
 
   /**
@@ -380,6 +401,36 @@ Ans: B
     if (dom.btnAddQuestion) {
       dom.btnAddQuestion.addEventListener('click', () => {
         addNewQuestion();
+      });
+    }
+
+    // 清空全部題目
+    if (dom.btnClearQuestions) {
+      dom.btnClearQuestions.addEventListener('click', () => {
+        if (!state.questions || state.questions.length === 0) {
+          showToast('目前題庫已是清空狀態！', 'info');
+          return;
+        }
+        if (confirm(`確定要清空目前全部 ${state.questions.length} 道題目嗎？此動作將清除當前編輯的所有題目，且無法復原！`)) {
+          state.questions = [];
+          saveToLocalStorage();
+          updateStats();
+          updateStage2WorkflowBanner();
+          renderQuestionsList();
+          showToast('已清空全部題目', 'info');
+        }
+      });
+    }
+
+    // 動態調整題目顯示字級大小
+    if (dom.fontSizeBtns && dom.fontSizeBtns.length > 0) {
+      dom.fontSizeBtns.forEach(btn => {
+        btn.addEventListener('click', () => {
+          const size = btn.dataset.size;
+          applyFontSize(size);
+          const sizeName = { sm: '小 (16px)', md: '標準 (18px)', lg: '大 (21px)', xl: '特大 (24px)' }[size] || size;
+          showToast(`已調整題目字型大小為「${sizeName}」`, 'info');
+        });
       });
     }
 
@@ -773,15 +824,17 @@ Ans: B
     header.innerHTML = `
       <div class="q-card-title-group">
         <span class="q-num-badge">#${q.index || displayIndex}</span>
-        <select class="q-type-select" title="點擊切換題型">
-          <option value="1" ${q.type === 1 ? 'selected' : ''}>是非題</option>
-          <option value="2" ${q.type === 2 ? 'selected' : ''}>單選題</option>
-          <option value="3" ${q.type === 3 ? 'selected' : ''}>複選題</option>
-          <option value="4" ${q.type === 4 ? 'selected' : ''}>填充題</option>
-          <option value="5" ${q.type === 5 ? 'selected' : ''}>問答題</option>
+        <select class="q-type-select" title="點擊切換題型，或選擇刪除此題">
+          <option value="1" ${q.type === 1 ? 'selected' : ''}>📝 是非題</option>
+          <option value="2" ${q.type === 2 ? 'selected' : ''}>🔘 單選題</option>
+          <option value="3" ${q.type === 3 ? 'selected' : ''}>☑️ 複選題</option>
+          <option value="4" ${q.type === 4 ? 'selected' : ''}>✏️ 填充題</option>
+          <option value="5" ${q.type === 5 ? 'selected' : ''}>📄 問答題</option>
+          <option disabled>──────────</option>
+          <option value="delete" class="opt-delete-action">🗑️ 刪除此題</option>
         </select>
         <div class="card-category-field" title="所屬類別 / 章節名稱">
-          🏷️ <input type="text" class="card-cat-input" value="${escapeHtml(q.category || '')}" placeholder="無類別（點此輸入）" style="background:transparent; border:none; border-bottom:1px dashed rgba(255,255,255,0.2); color:var(--text-muted); font-size:0.8rem; width:130px;">
+          🏷️ <input type="text" class="card-cat-input" value="${escapeHtml(q.category || '')}" placeholder="無類別（點此輸入）">
         </div>
         ${q.wasAutoNormalized ? `<span class="badge-auto-normalized" title="${escapeHtml(q.normalizeReason || '經第一階段智慧重構自動對齊，請手動確認')}">🪄 智慧規格化</span>` : ''}
         ${hasError ? `<span class="badge-status-error" title="${errorMsg}">⚠️ ${errorMsg}</span>` : ''}
@@ -790,15 +843,23 @@ Ans: B
         <button class="btn-icon btn-move-up" title="向上移動" ${displayIndex === 1 ? 'disabled' : ''}>▲</button>
         <button class="btn-icon btn-move-down" title="向下移動" ${displayIndex === state.questions.length ? 'disabled' : ''}>▼</button>
         <button class="btn-icon btn-duplicate" title="複製題目">📑</button>
-        <button class="btn-icon btn-delete" title="刪除題目">🗑️</button>
+        <button class="btn-icon btn-delete" title="刪除此題">🗑️</button>
       </div>
     `;
 
-    // 題型即時切換
+    // 題型即時切換與刪除處理
     const typeSelect = header.querySelector('.q-type-select');
     if (typeSelect) {
       typeSelect.addEventListener('change', (e) => {
-        const newType = parseInt(e.target.value, 10);
+        const selectedVal = e.target.value;
+        if (selectedVal === 'delete') {
+          // 先復原選單選項至原題型，避免若使用者取消確認對話框時仍停留在「刪除此題」
+          e.target.value = String(q.type);
+          deleteQuestion(q.id);
+          return;
+        }
+
+        const newType = parseInt(selectedVal, 10);
         q.type = newType;
         if (newType === 1) { // 是非題
           q.options = [];
@@ -845,9 +906,9 @@ Ans: B
     stemGroup.innerHTML = `
       <label class="form-label" style="display:flex; justify-content:space-between; align-items:center;">
         <span>題幹文字：</span>
-        ${q.type === 4 ? `<button class="btn btn-secondary btn-sm btn-insert-blank" style="padding:0.15rem 0.5rem; font-size:0.75rem;">➕ 插入 [*答案*] 標記</button>` : ''}
+        ${q.type === 4 ? `<button class="btn btn-secondary btn-sm btn-insert-blank">➕ 插入 [*答案*] 標記</button>` : ''}
       </label>
-      <textarea class="form-input q-stem-input" rows="2">${escapeHtml(q.stem || '')}</textarea>
+      <textarea class="form-input q-stem-input" rows="3" placeholder="請在此輸入題幹內容...">${escapeHtml(q.stem || '')}</textarea>
     `;
     const stemTextarea = stemGroup.querySelector('.q-stem-input');
     stemTextarea.addEventListener('input', (e) => {
@@ -1106,14 +1167,13 @@ Ans: B
     // 解析與難易度底欄
     const metaRow = document.createElement('div');
     metaRow.className = 'q-meta-row';
-    metaRow.style.marginTop = '0.75rem';
     metaRow.innerHTML = `
       <div class="form-group" style="flex: 1; margin-bottom: 0;">
-        <label class="form-label" style="font-size: 0.8rem;">題目解析 / 說明：</label>
+        <label class="form-label">題目解析 / 說明：</label>
         <input type="text" class="form-input q-exp-input" value="${escapeHtml(q.explanation || '')}" placeholder="建議填寫詳解，便於考後檢討">
       </div>
-      <div class="form-group" style="width: 120px; margin-bottom: 0;">
-        <label class="form-label" style="font-size: 0.8rem;">難易度：</label>
+      <div class="form-group" style="width: 140px; margin-bottom: 0;">
+        <label class="form-label">難易度：</label>
         <select class="form-input q-diff-select">
           <option value="1" ${q.difficulty === 1 ? 'selected' : ''}>容易</option>
           <option value="2" ${q.difficulty === 2 ? 'selected' : ''}>適中</option>
@@ -1181,13 +1241,20 @@ Ans: B
    * 刪除題目
    */
   function deleteQuestion(id) {
-    if (confirm('確定要刪除這道題目嗎？')) {
+    const qItem = state.questions.find(q => q.id === id);
+    const qNum = qItem ? (qItem.index || '') : '';
+    const stemSnippet = qItem && qItem.stem ? (qItem.stem.slice(0, 36) + (qItem.stem.length > 36 ? '...' : '')) : '';
+    const confirmPrompt = stemSnippet
+      ? `確定要刪除第 ${qNum} 題嗎？\n\n「${stemSnippet}」\n\n此動作無法復原。`
+      : `確定要刪除第 ${qNum} 題嗎？此動作無法復原。`;
+    if (confirm(confirmPrompt)) {
       state.questions = state.questions.filter(q => q.id !== id);
       state.questions.forEach((q, i) => q.index = i + 1);
       saveToLocalStorage();
       updateStats();
+      updateStage2WorkflowBanner();
       renderQuestionsList();
-      showToast('題目已刪除', 'info');
+      showToast(`第 ${qNum} 題已成功刪除`, 'info');
     }
   }
 

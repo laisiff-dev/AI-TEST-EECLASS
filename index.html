@@ -13,74 +13,82 @@
   <!-- 頂部功能列與品牌 Header -->
   <header class="site-header">
     <div class="header-container">
-      <div class="brand-wrapper">
-        <div class="brand-logo-icon">
-          <svg width="24" height="24" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
-          </svg>
+      <!-- 第一行（最上面一行）：系統品牌標題與深淺模式切換 -->
+      <div class="header-top-row">
+        <div class="brand-wrapper">
+          <div class="brand-logo-icon">
+            <svg width="26" height="26" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+            </svg>
+          </div>
+          <div class="brand-titles">
+            <h1>ee-Class 智慧題目轉換系統 <span class="brand-badge">Pro 2026</span></h1>
+            <p class="brand-sub">考題檔 (.docx / .md / .txt) &rarr; ee-Class (UTF-8 / Big5 / GIFT) 5 大題型一鍵轉換</p>
+          </div>
         </div>
-        <div class="brand-titles">
-          <h1>ee-Class 智慧題目轉換系統 <span class="brand-badge">Pro 2026</span></h1>
-          <p class="brand-sub">考題檔 (.docx / .md / .txt) &rarr; ee-Class (UTF-8 / Big5 / GIFT) 5 大題型一鍵轉換</p>
+
+        <div class="header-top-right">
+          <button id="btn-theme-toggle" class="btn btn-icon-only" title="切換深淺模式">
+            <svg width="19" height="19" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 9H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"></path>
+            </svg>
+          </button>
         </div>
       </div>
 
-      <!-- 即時數據徽章 (支援 5 大題型) -->
-      <div class="header-stats">
-        <div class="stat-pill stat-strict" id="stat-strict-badge" title="嚴格防呆檢核模式啟用中：全方位檢核，阻擋錯誤題目匯出，確保 100% 零瑕疵">
-          <span class="status-dot-pulse"></span> 🛡️ 嚴格防呆
+      <!-- 第二行：即時數據指標與匯出按鈕列 -->
+      <div class="header-bottom-row">
+        <!-- 即時數據徽章 (支援 5 大題型) -->
+        <div class="header-stats">
+          <div class="stat-pill stat-strict" id="stat-strict-badge" title="嚴格防呆檢核模式啟用中：全方位檢核，阻擋錯誤題目匯出，確保 100% 零瑕疵">
+            <span class="status-dot-pulse"></span> 🛡️ 嚴格防呆
+          </div>
+          <div class="stat-pill stat-total" title="總題數">
+            總題數: <strong id="stat-total">0</strong>
+          </div>
+          <div class="stat-pill stat-tf" title="是非題數">
+            是非: <strong id="stat-tf">0</strong>
+          </div>
+          <div class="stat-pill stat-single" title="單選題數">
+            單選: <strong id="stat-single">0</strong>
+          </div>
+          <div class="stat-pill stat-multi" title="複選題數">
+            複選: <strong id="stat-multi">0</strong>
+          </div>
+          <div class="stat-pill stat-fill" title="填充題數">
+            填充: <strong id="stat-fill">0</strong>
+          </div>
+          <div class="stat-pill stat-essay" title="問答題數">
+            問答: <strong id="stat-essay">0</strong>
+          </div>
+          <div class="stat-pill stat-warning" id="stat-warning" style="display: none;">
+            ⚠️ 待修正: <strong>0</strong>
+          </div>
         </div>
-        <div class="stat-pill stat-total" title="總題數">
-          總題數: <strong id="stat-total">0</strong>
-        </div>
-        <div class="stat-pill stat-tf" title="是非題數">
-          是非: <strong id="stat-tf">0</strong>
-        </div>
-        <div class="stat-pill stat-single" title="單選題數">
-          單選: <strong id="stat-single">0</strong>
-        </div>
-        <div class="stat-pill stat-multi" title="複選題數">
-          複選: <strong id="stat-multi">0</strong>
-        </div>
-        <div class="stat-pill stat-fill" title="填充題數">
-          填充: <strong id="stat-fill">0</strong>
-        </div>
-        <div class="stat-pill stat-essay" title="問答題數">
-          問答: <strong id="stat-essay">0</strong>
-        </div>
-        <div class="stat-pill stat-warning" id="stat-warning" style="display: none;">
-          ⚠️ 待修正: <strong>0</strong>
-        </div>
-      </div>
 
-      <!-- 快捷操作與匯出按鈕 -->
-      <div class="header-actions">
-        <button id="btn-theme-toggle" class="btn btn-icon-only" title="切換深淺模式">
-          <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 9H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"></path>
-          </svg>
-        </button>
+        <!-- 快捷操作與匯出按鈕 -->
+        <div class="header-actions">
+          <button id="btn-export-csv" class="btn btn-success" title="匯出 ee-Class 官方標準 CSV (Version 4 規範, 27 欄逗號分隔, UTF-8 with BOM)">
+            <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
+            </svg>
+            📥 匯出 ee-class CSV
+          </button>
 
-        <button id="btn-export-csv" class="btn btn-success" title="匯出 ee-Class 官方標準 CSV (Version 4 規範, 27 欄逗號分隔, UTF-8 with BOM)">
-          <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
-          </svg>
-          📥 匯出 ee-class CSV
-        </button>
+          <button id="btn-export-big5" class="btn btn-amber" title="匯出 Big5 副本 CSV (CP950 編碼, 附符號等義修復, 舊測驗系統專用)">
+            <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+            </svg>
+            📑 匯出 Big5 副本
+          </button>
 
-        <button id="btn-export-big5" class="btn btn-amber" title="匯出 Big5 副本 CSV (CP950 編碼, 附符號等義修復, 舊測驗系統專用)">
-          <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
-          </svg>
-          📑 匯出 Big5 副本
-        </button>
-
-        <button id="btn-export-gift" class="btn btn-purple" title="匯出 GIFT 格式 (.gift)">
-          <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v13m0-13V6a2 2 0 112 2h-2zm0 0V5.5A2.5 2.5 0 109.5 8H12zm-7 4h14M5 12a2 2 0 110-4h14a2 2 0 110 4M5 12v7a2 2 0 002 2h10a2 2 0 002-2v-7"></path>
-          </svg>
-          🎁 匯出 GIFT
-        </button>
+          <button id="btn-export-gift" class="btn btn-purple" title="匯出 GIFT 格式 (.gift)">
+            <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v13m0-13V6a2 2 0 112 2h-2zm0 0V5.5A2.5 2.5 0 109.5 8H12zm-7 4h14M5 12a2 2 0 110-4h14a2 2 0 110 4M5 12v7a2 2 0 002 2h10a2 2 0 002-2v-7"></path>
+            </svg>
+            🎁 匯出 GIFT
+          </button>
+        </div>
       </div>
     </div>
   </header>
@@ -165,32 +173,32 @@
               <label for="global-category-input">🏷️ 全域題庫類別 / 所屬章節：</label>
               <input type="text" id="global-category-input" placeholder="例如：單元一：環境微生物學基礎（選填，可一鍵套用）">
             </div>
-            <button id="btn-apply-global-cat" class="btn btn-secondary btn-sm" title="將此類別套用到目前所有題目">
+            <button id="btn-apply-global-cat" class="btn btn-secondary" title="將此類別套用到目前所有題目">
               套用到全部題目
             </button>
           </div>
 
           <div class="card-title-row">
             <h2>
-              <svg width="20" height="20" fill="none" stroke="#60a5fa" viewBox="0 0 24 24">
+              <svg width="22" height="22" fill="none" stroke="#60a5fa" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path>
               </svg>
               原始題目文字編輯區 (支援 5 大題型：是非、單選、複選、填充、問答)
             </h2>
             <div class="input-helpers">
-              <button id="btn-auto-normalize" class="btn btn-secondary btn-sm" title="【第一階段】將非標準自由排版題目（如SDGs、括號答案、併排選項、底線填空）一鍵重構調整為期待格式" style="background: linear-gradient(135deg, rgba(168, 85, 247, 0.2), rgba(59, 130, 246, 0.2)); border: 1px solid rgba(168, 85, 247, 0.4); color: #e9d5ff;">
+              <button id="btn-auto-normalize" class="btn btn-secondary" title="【第一階段】將非標準自由排版題目（如SDGs、括號答案、併排選項、底線填空）一鍵重構調整為期待格式" style="background: linear-gradient(135deg, rgba(168, 85, 247, 0.2), rgba(59, 130, 246, 0.2)); border: 1px solid rgba(168, 85, 247, 0.4); color: #e9d5ff;">
                 🪄 自由格式智慧重構
               </button>
-              <button id="btn-load-sdgs-sample" class="btn btn-secondary btn-sm" title="載入真實非標準排版的 SDGs 永續發展測驗題庫，體驗智慧重構與二段式修正">
+              <button id="btn-load-sdgs-sample" class="btn btn-secondary" title="載入真實非標準排版的 SDGs 永續發展測驗題庫，體驗智慧重構與二段式修正">
                 🌿 載入 SDGs 自由題庫
               </button>
-              <button id="btn-load-sample" class="btn btn-secondary btn-sm" title="載入 5 大題型綜合範例題庫">
+              <button id="btn-load-sample" class="btn btn-secondary" title="載入 5 大題型綜合範例題庫">
                 📚 載入 5 大題型範例
               </button>
-              <button id="btn-goto-manual" class="btn btn-secondary btn-sm" title="查閱完整匯入格式規範手冊與常見錯誤對照">
+              <button id="btn-goto-manual" class="btn btn-secondary" title="查閱完整匯入格式規範手冊與常見錯誤對照">
                 📖 規範手冊
               </button>
-              <button id="btn-clear-input" class="btn btn-secondary btn-sm" title="清空文字">
+              <button id="btn-clear-input" class="btn btn-secondary" title="清空文字">
                 🧹 清空
               </button>
             </div>
@@ -336,12 +344,33 @@
           <input type="text" id="search-questions-input" class="search-input" placeholder="搜尋題幹、選項、解析或類別關鍵字...">
         </div>
 
+        <div class="font-size-adjuster" id="font-size-adjuster" title="調整題目的字型大小 (點擊切換)">
+          <span class="font-size-label">
+            <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5h12M9 5v14m8-7h4m-2-3.5v7"></path>
+            </svg>
+            字級：
+          </span>
+          <div class="font-size-btn-group">
+            <button type="button" class="btn-font-size" data-size="sm" title="小字級 (16px)">小</button>
+            <button type="button" class="btn-font-size active" data-size="md" title="標準字級 (18px) - 推薦舒適閱讀">標準</button>
+            <button type="button" class="btn-font-size" data-size="lg" title="大字級 (21px) - 清晰易讀">大</button>
+            <button type="button" class="btn-font-size" data-size="xl" title="特大字級 (24px) - 長輩/投影片友善">特大</button>
+          </div>
+        </div>
+
         <div class="editor-actions">
-          <button id="btn-add-question" class="btn btn-primary btn-sm">
+          <button id="btn-add-question" class="btn btn-primary btn-sm" title="手動新增一道自訂題目">
             <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
             </svg>
             新增一道題
+          </button>
+          <button id="btn-clear-questions" class="btn btn-secondary btn-sm btn-clear-all" title="清空當前所有題目">
+            <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+            </svg>
+            清空題目
           </button>
         </div>
       </div>
