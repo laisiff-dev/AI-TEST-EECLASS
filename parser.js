@@ -241,10 +241,11 @@
       };
     }
 
-    // 1. 基本字元半形化與清理
+    // 1. 基本字元半形化與清理（保留粗體內答案標籤的邊界空白）
     let text = rawText
       .replace(/\r\n/g, '\n')
       .replace(/\r/g, '\n')
+      .replace(/\*\*\s*((?:[【\[（(]\s*)?(?:標準答案|正確答案|參考答案|答案|解答|正解|Answer|Ans|解說|解析|詳解|說明|難易度|難度)[^*\n]*?)\s*\*\*/gi, ' $1 ')
       .replace(/[\uFF01-\uFF5E]/g, ch => String.fromCharCode(ch.charCodeAt(0) - 0xFEE0))
       .replace(/　/g, ' ')
       .replace(/\*\*/g, '')
@@ -272,16 +273,17 @@
         continue;
       }
 
-      // 1. 過濾試卷結尾雜訊或延伸建議
-      if (/^(?:🌱\s*後續延伸建議|※?\s*備註|以上題目由|Note:|Hope this helps)/i.test(line)) {
+      // 1. 過濾試卷結尾雜訊或 AI 延伸建議
+      if (/^(?:[🌱💡✨📌💬🤖]+\s*)?(?:後續延伸建議|※?\s*備註|以上(?:題目|測驗題)由|需要(?:我|將這|幫您|把這)|若需要(?:我|進一步|調整|將)|如果您?需要(?:調整|更多|將這|匯出)|希望(?:以上|這份|這些)[^\n]*對您?有幫助|Note:|Hope this helps|Would you like me to)/i.test(line)) {
+        cleanedHeaders = true;
         break;
       }
 
-      // 2. 章節 / 類別標題識別（如 📘 2.1 SDGs介紹（15題）或 第2章 ...）
-      const isChapterHeader = /^(?:[📘📗📕📙]+|(?:第[一二三四五六七八九十0-9]+[章單單元節])|(?:\d+\.\d+))\s*(.*)$/i.test(line);
-      if (isChapterHeader && !/^\d+[.、．]/.test(line)) {
+      // 2. 章節 / 類別標題識別（如 📘 2.1 SDGs介紹（15題）、### 3-1 AI幫我擬大綱（10 題）或 第2章 ...）
+      const isChapterHeader = /^(?:[📘📗📕📙📔📒📓]+|#{1,4}\s+|(?:第[一二三四五六七八九十0-9]+[章單單元節])|(?:\d+[-.]\d+\s+))\s*(.*)$/i.test(line);
+      if (isChapterHeader && !/^\d+[.、．]\s/.test(line)) {
         inIntro = false;
-        let cleanCat = line.replace(/^[📘📗📕📙\s]+|[（(]\d+題[）)]\s*$/g, '').trim();
+        let cleanCat = line.replace(/^(?:[📘📗📕📙📔📒📓#\s]+)|[（(]\s*\d+\s*題\s*[）)]\s*$/g, '').trim();
         if (cleanCat.length >= 2 && !/^[一二三四五六七八九十0-9]+[、.．\s]+(?:單選|是非|選擇|複選|填|問答|解答)/.test(cleanCat)) {
           sectionQIndices = {}; // 重置章節題號索引
           if (!detectedCategory) detectedCategory = cleanCat;
@@ -461,9 +463,51 @@
         }
       }
 
-      // 檢查題目結尾是否帶有答案括號: 例如 "3. SDGs 的核心精神為... (對)"
-      const tailAnsMatch = line.match(/^(.*?)\s*[（(]\s*([A-Ha-hO○⭕X╳✕✘F是丵否對錯1-6])\s*[）)]\s*$/i);
-      if (tailAnsMatch && !/^\s*(?:答案|解析)/.test(line)) {
+      // 7B. 題末或選項末端黏合「答案：(B)」／「（答案：B）」分離（在拆分選項之前先抽離，避免把答案 (B) 誤拆成第 5 個選項）
+      let pendingInlineAns = '';
+      let pendingInlineExp = '';
+      if (!/^(?:[【\[]\s*)?(?:標準答案|正確答案|參考答案|答案|Ans|Answer|Key|正解|解答|解析|詳解|說明|解說)/i.test(line)) {
+        const inlineLabelRe = /([【\[（(])\s*(?:標準答案|正確答案|參考答案|答案|解答|正解|Answer|Ans)\s*[】\]）)]\s*[:：]?\s*|([【\[（(])\s*(?:標準答案|正確答案|參考答案|答案|解答|正解|Answer|Ans)\s*[:：]\s*|(?:標準答案|正確答案|參考答案|答案|解答|正解)\s*[:：]\s*|(?<![A-Za-z])(?:Answer|Ans)\s*[:：]\s*/gi;
+        let lastM = null;
+        let im;
+        while ((im = inlineLabelRe.exec(line)) !== null) {
+          if (im.index > 0) lastM = { index: im.index, length: im[0].length, openWrapper: im[2] || '' };
+        }
+        if (lastM) {
+          const beforeAns = line.slice(0, lastM.index).trim();
+          let afterAns = line.slice(lastM.index + lastM.length).trim();
+          if (lastM.openWrapper && afterAns) {
+            const closeMap = { '（': '）', '(': ')', '【': '】', '[': ']' };
+            const expClose = closeMap[lastM.openWrapper];
+            if (expClose && afterAns.endsWith(expClose)) {
+              const opens = (afterAns.match(/[（(【\[]/g) || []).length;
+              const closes = (afterAns.match(/[）)】\]]/g) || []).length;
+              if (closes > opens) afterAns = afterAns.slice(0, -expClose.length).trim();
+            }
+          }
+          const expTail = afterAns.match(/^(.*?)(?:[；;]\s*|\s+)(?:【?(?:解析|詳解|說明|解說|Rationale|Explanation)】?)[：:\s]*(.+)$/i);
+          if (expTail && expTail[1].trim()) {
+            afterAns = expTail[1].trim();
+            pendingInlineExp = expTail[2].trim();
+          }
+          afterAns = afterAns.replace(/^((?:[（(\[]\s*[A-Ta-tO○⭕X╳✕✘TF是否對錯1-6]\s*[）)\]][,，、/\s]*)+|[A-Ta-tO○⭕X╳✕✘TF是否對錯]|正確|錯誤)\s+\d+(?:,\s*\d+)*\s*$/i, '$1').trim();
+          const validPrefix = beforeAns && !/^(?:第\s*\d+\s*題|Q\s*\d+|\d+)[.、．:：\s]*$/i.test(beforeAns) && !/^(?:[（(\[]\s*[A-Ta-t1-6]\s*[）)\]]|[A-Ta-t][.、．]|[①②③④⑤⑥])\s*$/.test(beforeAns);
+          const validAns =
+            /^(?:[（(\[]\s*[A-Ta-tO○⭕X╳✕✘TF是否對錯1-6]\s*[）)\]][,，、/&\s]*)+$/i.test(afterAns) ||
+            /^(?:正確|錯誤|True|False|YES|NO|[O○⭕X╳✕✘TF是否對錯]|[A-Ta-t](?:\s*[,，、/&]\s*[A-Ta-t])*|[A-Ha-h]{2,6}|[1-6](?:\s*[,，、]\s*[1-6])*)$/i.test(afterAns);
+          if (validPrefix && validAns) {
+            line = beforeAns;
+            pendingInlineAns = afterAns;
+            extractedAnswers++;
+          } else {
+            pendingInlineExp = '';
+          }
+        }
+      }
+
+      // 檢查題目結尾是否帶有答案括號: 例如 "3. SDGs 的核心精神為... (對)"（排除含有多個選項的行）
+      const tailAnsMatch = !pendingInlineAns && line.match(/^(.*?)\s*[（(]\s*([A-Ha-hO○⭕X╳✕✘F是丵否對錯1-6])\s*[）)]\s*$/i);
+      if (tailAnsMatch && !/^\s*(?:答案|解析)/.test(line) && !/[（(][A-Ha-h][）)]/.test(tailAnsMatch[1])) {
         const stem = tailAnsMatch[1].trim();
         let ans = tailAnsMatch[2].toUpperCase();
         if (currentSectionType === 'TF' || /^[O○⭕X╳✕✘F是丵否對錯12]$/i.test(ans)) {
@@ -527,24 +571,22 @@
       // 例如: 1(A) 優先滿足... (B) ... 1(C) ... (D) ...
       // 或 (A) 15項 (B) 16項 (C) 17項 (D) 18項
       const optMatches = [];
-      const optSplitPattern = /(?:(?:\s*\d+(?:,\s*\d+)*)?\s*|^)(?:[（(\[]([A-Ha-h1-6])[）)\]]|(?:^|\s+)([A-Ha-h])[.、．](?![A-Za-z])|([①②③④⑤⑥]))\s*/g;
+      const optSplitPattern = /(?:(?:\s+\d+(?:,\s*\d+)*)?\s*|^)(?:[（(\[]([A-Ha-h])[）)\]]|(?:^|\s+)([A-Ha-h])[.、．](?![A-Za-z0-9])|([①②③④⑤⑥]))\s*/g;
       let om;
       while ((om = optSplitPattern.exec(line)) !== null) {
         let rawLabel = om[1] || om[2] || om[3];
         if (/^[①②③④⑤⑥]$/.test(rawLabel)) {
           rawLabel = String.fromCharCode(65 + '①②③④⑤⑥'.indexOf(rawLabel));
-        } else if (/^[1-6]$/.test(rawLabel)) {
-          rawLabel = String.fromCharCode(64 + parseInt(rawLabel, 10));
         } else {
           rawLabel = rawLabel.toUpperCase();
         }
         optMatches.push({ index: om.index, length: om[0].length, label: rawLabel });
       }
 
-      if (optMatches.length >= 2) {
+      if (optMatches.length >= 2 && optMatches[0].label === 'A' && optMatches[1].label === 'B') {
         splitOptions += optMatches.length;
         let prefix = line.substring(0, optMatches[0].index).trim();
-        prefix = prefix.replace(/\s*\d+(?:,\s*\d+)*\s*$/, '');
+        prefix = prefix.replace(/(?<=[？?。！!：:）)])\s*\d+(?:,\s*\d+)*\s*$/, '').trim();
         if (prefix) {
           outputLines.push(prefix);
         }
@@ -553,9 +595,12 @@
           const cur = optMatches[k];
           const next = (k + 1 < optMatches.length) ? optMatches[k + 1].index : line.length;
           let optText = line.substring(cur.index + cur.length, next).trim();
-          optText = optText.replace(/\s*\d+(?:,\s*\d+)*\s*$/, '');
+          optText = optText.replace(/(?<=[\u4e00-\u9fff）)！!。？?])\s+\d+(?:,\s*\d+)*\s*$/, '').trim();
+          optText = optText.replace(/(\S+(?:年|次|公噸|國家|左右|多項|以上|以下|成|五))\s+\d+(?:,\s*\d+)*\s*$/, '$1').trim();
           outputLines.push(`(${cur.label}) ${optText}`);
         }
+        if (pendingInlineAns) outputLines.push(`答案：${pendingInlineAns}`);
+        if (pendingInlineExp) outputLines.push(`解析：${pendingInlineExp}`);
         i++;
         continue;
       }
@@ -572,14 +617,18 @@
           rawLabel = rawLabel.toUpperCase();
         }
         let optText = singleOptMatch[4].trim();
-        optText = optText.replace(/\s*\d+(?:,\s*\d+)*\s*$/, '');
+        optText = optText.replace(/(?<=[\u4e00-\u9fff）)！!。？?])\s+\d+(?:,\s*\d+)*\s*$/, '').trim();
         outputLines.push(`(${rawLabel}) ${optText}`);
+        if (pendingInlineAns) outputLines.push(`答案：${pendingInlineAns}`);
+        if (pendingInlineExp) outputLines.push(`解析：${pendingInlineExp}`);
         i++;
         continue;
       }
 
       // 其它一般文字（題幹延續行）
       outputLines.push(line);
+      if (pendingInlineAns) outputLines.push(`答案：${pendingInlineAns}`);
+      if (pendingInlineExp) outputLines.push(`解析：${pendingInlineExp}`);
       i++;
     }
 

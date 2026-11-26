@@ -225,7 +225,7 @@
       }
       const norm = QB.normalizeFreeformQuizText(raw);
       $("raw-text").value = norm.normalizedText;
-      if (norm.detectedCategory && !$("default-category").value.trim()) {
+      if (norm.detectedCategory && !$("default-category").value.trim() && (!norm.stats || norm.stats.detectedChapters <= 1)) {
         $("default-category").value = norm.detectedCategory;
       }
       const banner = $("parse-banner");

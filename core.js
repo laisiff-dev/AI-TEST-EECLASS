@@ -1018,6 +1018,105 @@
     return answers;
   }
 
+  function extractTrailingInlineAnswer(line, currentSectionType) {
+    if (!line || line.length < 4) return null;
+    // 若整行本身就是答案/解析/難度開頭，交給單行處理邏輯
+    if (/^(?:[【\[]\s*)?(?:參考答案|標準答案|正確答案|答案|Ans|Answer|Key|正解|解答|解說|解析|詳解|說明|難易度|難度)(?:\s*[】\]]|\s*[:：])/i.test(line)) {
+      return null;
+    }
+
+    // 尋找行內最後一個答案標籤（支援無空白黏合如「...應用答案：(B)」、「（答案：B）」、「【答案】(B)」與「 Ans: B」）
+    const labelRe =
+      /([【\[（(])\s*(?:標準答案|正確答案|參考答案|答案|解答|正解|Answer|Ans)\s*[】\]）)]\s*[:：]?\s*|([【\[（(])\s*(?:標準答案|正確答案|參考答案|答案|解答|正解|Answer|Ans)\s*[:：]\s*|(?:標準答案|正確答案|參考答案|答案|解答|正解)\s*[:：]\s*|(?<![A-Za-z])(?:Answer|Ans)\s*[:：]\s*/gi;
+    let lastMatch = null;
+    let m;
+    while ((m = labelRe.exec(line)) !== null) {
+      if (m.index > 0) {
+        lastMatch = {
+          index: m.index,
+          length: m[0].length,
+          openWrapper: m[2] || "",
+        };
+      }
+    }
+    if (!lastMatch) return null;
+
+    const before = line.slice(0, lastMatch.index).trim();
+    // 前綴不可只是題號或單純選項代號（避免誤拆如 "(A) 答案：B" 這類討論格式的選項文字）
+    if (
+      !before ||
+      /^(?:第\s*\d+\s*題|Q\s*\d+|\d+)[.、．:：\s]*$/i.test(before) ||
+      /^(?:[（(\[]\s*[A-Ta-t1-6]\s*[）)\]]|[A-Ta-t][.、．]|[①②③④⑤⑥])\s*$/.test(before)
+    ) {
+      return null;
+    }
+
+    let after = line.slice(lastMatch.index + lastMatch.length).trim();
+    if (!after) return null;
+
+    // 若外層有成對包覆括號（如「（答案：(B)）」或「【答案：B】」），在閉括號數量多於開括號時剝除最外層閉括號
+    if (lastMatch.openWrapper) {
+      const closeMap = { "（": "）", "(": ")", "【": "】", "[": "]" };
+      const expectedClose = closeMap[lastMatch.openWrapper];
+      if (expectedClose && after.endsWith(expectedClose)) {
+        const openCount = (after.match(/[（(【\[]/g) || []).length;
+        const closeCount = (after.match(/[）)】\]]/g) || []).length;
+        if (closeCount > openCount) {
+          after = after.slice(0, -expectedClose.length).trim();
+        }
+      }
+    }
+
+    let inlineDiff = "";
+    let inlineExp = "";
+
+    // 分離尾端可能附帶的「難易度：...」
+    const diffTail = after.match(
+      /^(.*?)(?:[；;，,\s]+)(?:【\s*(?:難易度|難度|Difficulty)\s*】|(?:難易度|難度|Difficulty))\s*[:：]\s*(easy|medium|hard|[1-3１-３容易簡單基礎適中中等普通困難較難進階易中難]+)\s*$/i
+    );
+    if (diffTail && diffTail[1].trim()) {
+      after = diffTail[1].trim();
+      inlineDiff = diffTail[2].trim();
+    }
+
+    // 分離尾端可能附帶的「解析 / 解說：...」
+    const expTail = after.match(
+      /^(.*?)(?:[；;]\s*|\s+)(?:【\s*(?:解說|解析|詳解|說明|Rationale|Explanation)\s*】|(?:解說|解析|詳解|說明|Rationale|Explanation))\s*[:：]\s*(.+)$/i
+    );
+    if (expTail && expTail[1].trim()) {
+      after = expTail[1].trim();
+      inlineExp = expTail[2].trim();
+    }
+
+    // 清理答案後緊跟的 NotebookLM 來源引用編號（如 "(B) 1" 或 "B 2, 3"，保留純數字複選如 "1, 2"）
+    const ansCandidate = after
+      .replace(/^((?:[（(\[]\s*[A-Ta-tO○⭕X╳✕✘TF是否對錯1-6]\s*[）)\]][,，、/\s]*)+|[A-Ta-tO○⭕X╳✕✘TF是否對錯]|正確|錯誤)\s+\d+(?:,\s*\d+)*\s*$/i, "$1")
+      .trim();
+
+    if (!ansCandidate) return null;
+
+    // 若後面還跟著其他選項（例如題幹中提到「答案：A」但後面仍有 (B) ... (C) ...），則不是行尾答案
+    if (/[（(\[][B-Hb-h][）)\]]/.test(ansCandidate) && !/^(?:[（(\[]\s*[A-Ta-t]\s*[）)\]][,，、/&及與和\s]*)+$/.test(ansCandidate)) {
+      return null;
+    }
+
+    const isBracketedChoiceOrTf = /^(?:[（(\[]\s*[A-Ta-tO○⭕X╳✕✘TF是否對錯1-6]\s*[）)\]][,，、/&及與和\s]*)+$/i.test(ansCandidate);
+    const isPlainTf = /^(?:✅|⭕|✔|❌|❎|✘)?\s*(?:正確|錯誤|True|False|YES|NO|[OＯ○◯⭕XＸ✕✖╳✘TFtf是否對錯])\s*$/i.test(ansCandidate);
+    const isPlainChoice = /^(?:[A-Ta-t](?:\s*[,，、/&及與和]\s*[A-Ta-t])*|[A-Ha-h]{2,6}|[1-6](?:\s*[,，、]\s*[1-6])*)$/.test(ansCandidate);
+    const hasFillBlank = currentSectionType === "FILL" || /(?:_{2,}|＿{2,}|【\s*\d*\s*】|\(\s*\)|（\s*）|\[\*.+?\*\])/.test(before);
+
+    if (isBracketedChoiceOrTf || isPlainTf || isPlainChoice || hasFillBlank) {
+      return {
+        cleanLine: before,
+        answer: ansCandidate,
+        explanation: inlineExp,
+        difficulty: inlineDiff,
+      };
+    }
+
+    return null;
+  }
+
   function normalizeFreeformQuizText(rawText) {
     if (!rawText || !rawText.trim()) {
       return {
@@ -1028,11 +1127,12 @@
       };
     }
 
-    // 保留全形中文標點（如「」、《》、，、。、：、（）、【】），僅清理 Markdown 粗體/反引號與全形空白
+    // 保留全形中文標點（如「」、《》、，、。、：、（）、【】），先將緊貼在粗體內的答案/解析標籤補上空白邊界，再移除 Markdown 粗體/反引號
     const text = String(rawText)
       .replace(/\r\n/g, "\n")
       .replace(/\r/g, "\n")
       .replace(/　/g, " ")
+      .replace(/\*\*\s*((?:[【\[（(]\s*)?(?:標準答案|正確答案|參考答案|答案|解答|正解|Answer|Ans|解說|解析|詳解|說明|難易度|難度)[^*\n]*?)\s*\*\*/gi, " $1 ")
       .replace(/\*\*(.*?)\*\*/g, "$1")
       .replace(/`([^`]+)`/g, "$1");
 
@@ -1060,8 +1160,11 @@
         continue;
       }
 
-      // 1. 過濾 AI 對話結尾雜訊
-      if (/^(?:🌱\s*後續延伸建議|※?\s*備註[：:]|以上題目由|Note:|Hope this helps)/i.test(line)) {
+      // 1. 過濾 AI 對話結尾雜訊（如「🌱 後續延伸建議...」、「💡 需要將這 40 道...製作成線上互動測驗嗎？」等）
+      if (
+        !inEssayRefAnswer &&
+        /^(?:[🌱💡✨📌💬🤖]+\s*)?(?:後續延伸建議|※?\s*備註[：:]|以上(?:題目|測驗題)由|需要(?:我|將這|幫您|把這)|若需要(?:我|進一步|調整|將)|如果您?需要(?:調整|更多|將這|匯出)|希望(?:以上|這份|這些)[^\n]*對您?有幫助|Note:|Hope this helps|Would you like me to)/i.test(line)
+      ) {
         cleanedHeaders = true;
         break;
       }
@@ -1077,8 +1180,8 @@
         continue;
       }
 
-      // 3. 章節 / NotebookLM 來源標題（如 📘 2.1 SDGs介紹（15題）、# 第一章 ...）
-      const chapMatch = line.match(/^(?:([📘📗📕📙📔📒📓]+)\s*(.+)|(#{1,3})\s*(.+))$/);
+      // 3. 章節 / NotebookLM 來源標題（如 📘 2.1 SDGs介紹（15題）、### 3-1 AI幫我擬大綱（10 題）、# 第一章 ...）
+      const chapMatch = line.match(/^(?:([📘📗📕📙📔📒📓]+)\s*(.+)|(#{1,4})\s*(.+))$/);
       if (chapMatch) {
         const body = (chapMatch[2] || chapMatch[4] || "").trim();
         // 避免把 "# 一、是非題" 當作類別
@@ -1265,14 +1368,29 @@
         });
       }
 
+      // 9B. 題末或選項末端黏合「答案：(B)」／「（答案：B）」／「答案：O 解析：...」（如 NotebookLM / Markdown 同行答案）
+      let extractedInlineAns = null;
+      let extractedInlineExp = "";
+      let extractedInlineDiff = "";
+      const inlineAnsInfo = extractTrailingInlineAnswer(line, currentSectionType);
+      if (inlineAnsInfo) {
+        line = inlineAnsInfo.cleanLine;
+        extractedInlineAns = inlineAnsInfo.answer;
+        extractedInlineExp = inlineAnsInfo.explanation;
+        extractedInlineDiff = inlineAnsInfo.difficulty;
+        extractedAnswers++;
+      }
+
       // 10. 檢查題目結尾括號答案（例如 "3. 台灣最高峰是玉山。(對)"，排除 (填英文...) 之類長括號）
       let extractedTailAns = null;
-      const mTail = line.match(/^(.*?)\s*[（(]\s*([A-Ha-hO○⭕X╳✕✘TF是否對錯])\s*[）)]\s*$/i);
-      if (mTail && !extractedLeadAns && mTail[1].trim().length >= 4 && !/[（(][A-Ha-h][）)]/.test(mTail[1])) {
+      const mTail = !extractedLeadAns && !extractedInlineAns && line.match(/^(.*?)\s*[（(]\s*([A-Ha-hO○⭕X╳✕✘TF是否對錯])\s*[）)]\s*$/i);
+      if (mTail && mTail[1].trim().length >= 4 && !/[（(][A-Ha-h][）)]/.test(mTail[1])) {
         line = mTail[1].trim();
         extractedTailAns = mTail[2].toUpperCase();
         extractedAnswers++;
       }
+
+      const finalExtractedAns = extractedLeadAns || extractedInlineAns || extractedTailAns;
 
       // 11. 同一行內含多個選項拆分（含 NotebookLM 黏合選項與來源引用編號 `1(A) ... (B) ... 2, 3(C) ...` 與 `①②③④`）
       const optMatches = [];
@@ -1315,8 +1433,9 @@
           optText = optText.replace(/(\S+(?:年|次|公噸|國家|左右|多項|以上|以下|成|五))\s+\d+(?:,\s*\d+)*\s*$/, "$1").trim();
           outputLines.push(`(${cur.label}) ${optText}`);
         }
-        if (extractedLeadAns) outputLines.push(`答案：${extractedLeadAns}`);
-        else if (extractedTailAns) outputLines.push(`答案：${extractedTailAns}`);
+        if (finalExtractedAns) outputLines.push(`答案：${finalExtractedAns}`);
+        if (extractedInlineExp) outputLines.push(`解說：${extractedInlineExp}`);
+        if (extractedInlineDiff) outputLines.push(`難易度：${extractedInlineDiff}`);
         i++;
         continue;
       }
@@ -1327,6 +1446,9 @@
         const lbl = String.fromCharCode(65 + "①②③④⑤⑥".indexOf(mCircle[1]));
         splitOptions++;
         outputLines.push(`(${lbl}) ${mCircle[2].trim()}`);
+        if (finalExtractedAns) outputLines.push(`答案：${finalExtractedAns}`);
+        if (extractedInlineExp) outputLines.push(`解說：${extractedInlineExp}`);
+        if (extractedInlineDiff) outputLines.push(`難易度：${extractedInlineDiff}`);
         i++;
         continue;
       }
@@ -1340,8 +1462,9 @@
       }
 
       outputLines.push(line);
-      if (extractedLeadAns) outputLines.push(`答案：${extractedLeadAns}`);
-      else if (extractedTailAns) outputLines.push(`答案：${extractedTailAns}`);
+      if (finalExtractedAns) outputLines.push(`答案：${finalExtractedAns}`);
+      if (extractedInlineExp) outputLines.push(`解說：${extractedInlineExp}`);
+      if (extractedInlineDiff) outputLines.push(`難易度：${extractedInlineDiff}`);
       i++;
     }
 
@@ -1404,23 +1527,68 @@
 
   function parseChoiceAnswer(ansText) {
     const s = String(ansText || "").trim();
-    const letters = [];
-    const letterMatches = s.match(/[A-Ta-t]/g);
-    if (letterMatches && letterMatches.length > 0 && !/^[0-9,\s]+$/.test(s)) {
-      for (const ch of letterMatches) {
+    if (!s) return [];
+
+    // 1. 優先抽取括號選項代號：支援 "(B)"、"(B) AI幫我擬大綱"、"(A)(B)(C)"、"(A) 機密性、(B) 完整性"
+    //    避免把後方附帶的英文選項文字（如 AI / ChatGPT / Terrestrial）誤判為複選答案
+    const bracketLead = s.match(/^\s*(?:[（(\[]\s*([A-Ta-t])\s*[）)\]])/);
+    if (bracketLead) {
+      const picks = [];
+      const chainRe = /(?:^\s*|(?:[,，、/&及與和;；]\s*)|(?<=[）)\]]\s*))[（(\[]\s*([A-Ta-t])\s*[）)\]]/g;
+      let m;
+      while ((m = chainRe.exec(s)) !== null) {
+        const n = letterToNum(m[1]);
+        if (n && !picks.includes(n)) picks.push(n);
+      }
+      if (picks.length > 0) return picks;
+    }
+
+    // 2. 純選項字母串或分隔字母清單：如 "B"、"ABD"、"A, B, D"、"A、C"、"B 1"、"C 2, 3"
+    const cleanNoCite = s.replace(/^([A-Ta-t])\s+\d+(?:,\s*\d+)*\s*$/, "$1").trim();
+    const sepLetters = cleanNoCite.match(/^([A-Ta-t])(?:\s*[,，、/&及與和+\s]\s*([A-Ta-t]))*$/);
+    if (sepLetters) {
+      const picks = [];
+      for (const ch of cleanNoCite.match(/[A-Ta-t]/g) || []) {
         const n = letterToNum(ch);
-        if (n && !letters.includes(n)) letters.push(n);
+        if (n && !picks.includes(n)) picks.push(n);
       }
-      return letters;
+      return picks;
     }
-    const nums = [];
-    const numMatches = s.match(/\b([1-9]|1[0-9]|20)\b/g);
-    if (numMatches) {
-      for (const n of numMatches) {
-        if (!nums.includes(n)) nums.push(n);
+    if (/^[A-Ta-t]{2,10}$/.test(cleanNoCite)) {
+      const picks = [];
+      for (const ch of cleanNoCite) {
+        const n = letterToNum(ch);
+        if (n && !picks.includes(n)) picks.push(n);
       }
+      return picks;
     }
-    return nums;
+
+    // 3. 單一選項字母後接選項文字：如 "B. AI幫我擬大綱"、"A：80.2%"
+    const singleWithText = cleanNoCite.match(/^([A-Ta-t])(?:[.．、:：\s]+)(?![A-Ta-t](?:\s*[,，、/&及與和]|\s*$))/);
+    if (singleWithText) {
+      const n = letterToNum(singleWithText[1]);
+      return n ? [n] : [];
+    }
+
+    // 4. 純數字編號清單：如 "2"、"1, 2, 4"
+    if (/^[0-9,\s、，]+$/.test(s)) {
+      const nums = [];
+      const numMatches = s.match(/\b([1-9]|1[0-9]|20)\b/g);
+      if (numMatches) {
+        for (const n of numMatches) {
+          if (!nums.includes(n)) nums.push(n);
+        }
+      }
+      return nums;
+    }
+
+    // 保底：擷取獨立單字母代號
+    const fallback = [];
+    for (const m of s.matchAll(/(?:^|[\s,，、/（(\[])([A-Ta-t])(?=$|[\s,，、/）)\].．:：])/g)) {
+      const n = letterToNum(m[1]);
+      if (n && !fallback.includes(n)) fallback.push(n);
+    }
+    return fallback;
   }
 
   function embedFillAnswers(questionText, answerText) {
@@ -1641,7 +1809,7 @@
         }
       }
 
-      if (current && (state === "stem" || state === "options")) {
+      if (current && !(current.sectionType === "5" || current.isRefAnswer) && (state === "stem" || state === "options" || (state === "answer" && current.options.length === 0))) {
         const mOpt = trimmed.match(OPT_LINE_RE);
         if (mOpt) {
           current.options.push(mOpt[4].trim());
@@ -1673,8 +1841,9 @@
 
       if (current) {
         if (state === "stem") current.stemLines.push(trimmed);
-        else if (state === "answer") current.answerLines.push(trimmed);
-        else if (state === "explanation") current.explanationLines.push(trimmed);
+        else if (state === "answer" && (current.sectionType === "5" || current.isRefAnswer || current.options.length === 0)) {
+          current.answerLines.push(trimmed);
+        } else if (state === "explanation") current.explanationLines.push(trimmed);
         else if (state === "options" && current.options.length > 0) {
           current.options[current.options.length - 1] += "\n" + trimmed;
         }

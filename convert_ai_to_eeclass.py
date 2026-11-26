@@ -208,7 +208,13 @@ def normalize_freeform_quiz_text(raw_text: str):
     if not raw_text or not raw_text.strip():
         return raw_text, ""
 
-    text = unicodedata.normalize('NFKC', raw_text)
+    raw_with_space = re.sub(
+        r'\*\*\s*((?:[【\[（(]\s*)?(?:標準答案|正確答案|參考答案|答案|解答|正解|Answer|Ans|解說|解析|詳解|說明|難易度|難度)[^*\n]*?)\s*\*\*',
+        r' \1 ',
+        raw_text,
+        flags=re.IGNORECASE,
+    )
+    text = unicodedata.normalize('NFKC', raw_with_space)
     text = re.sub(r'\r\n', '\n', text)
     text = re.sub(r'\r', '\n', text)
     text = re.sub(r'\*\*', '', text)
@@ -229,15 +235,15 @@ def normalize_freeform_quiz_text(raw_text: str):
             i += 1
             continue
 
-        # 1. 過濾試卷結尾雜訊或延伸建議
-        if re.match(r'^(?:🌱\s*後續延伸建議|※?\s*備註|以上題目由|Note:|Hope this helps)', line, re.IGNORECASE):
+        # 1. 過濾試卷結尾雜訊或 AI 延伸建議
+        if re.match(r'^(?:[🌱💡✨📌💬🤖]+\s*)?(?:後續延伸建議|※?\s*備註|以上(?:題目|測驗題)由|需要(?:我|將這|幫您|把這)|若需要(?:我|進一步|調整|將)|如果您?需要(?:調整|更多|將這|匯出)|希望(?:以上|這份|這些)[^\n]*對您?有幫助|Note:|Hope this helps|Would you like me to)', line, re.IGNORECASE):
             break
 
-        # 2. 章節 / 類別標題識別（如 📘 2.1 SDGs介紹（15題）或 第2章 ...）
-        is_chapter = bool(re.match(r'^(?:[📘📗📕📙]+|(?:第[一二三四五六七八九十0-9]+[章單單元節])|(?:\d+\.\d+))\s*(.*)$', line))
-        if is_chapter and not re.match(r'^\d+[.、．]', line):
+        # 2. 章節 / 類別標題識別（如 📘 2.1 SDGs介紹（15題）、### 3-1 AI幫我擬大綱（10 題）或 第2章 ...）
+        is_chapter = bool(re.match(r'^(?:[📘📗📕📙📔📒📓]+|#{1,4}\s+|(?:第[一二三四五六七八九十0-9]+[章單單元節])|(?:\d+[-.]\d+\s+))\s*(.*)$', line))
+        if is_chapter and not re.match(r'^\d+[.、．]\s', line):
             in_intro = False
-            clean_cat = re.sub(r'^[📘📗📕📙\s]+|[（(]\d+題[）)]\s*$', '', line).strip()
+            clean_cat = re.sub(r'^(?:[📘📗📕📙📔📒📓#\s]+)|[（(]\s*\d+\s*題\s*[）)]\s*$', '', line).strip()
             if len(clean_cat) >= 2 and not re.match(r'^[一二三四五六七八九十0-9]+[、.．\s]+(?:單選|是非|選擇|複選|填|問答|解答)', clean_cat):
                 section_q_indices = {}  # 重置章節題號索引
                 if not detected_category:
@@ -372,9 +378,55 @@ def normalize_freeform_quiz_text(raw_text: str):
                 current_q_num = int(q_digits)
                 section_q_indices[current_q_num] = len(output_lines)
 
-        # 檢查題尾答案
-        tail_ans = re.match(r'^(.*?)\s*[（(]\s*([A-Ha-hO○⭕X╳✕✘F是丵否對錯1-6])\s*[）)]\s*$', line, re.IGNORECASE)
-        if tail_ans and not re.match(r'^\s*(?:答案|解析)', line):
+        # 7B. 題末或選項末端黏合「答案：(B)」／「（答案：B）」分離（在拆分選項之前先抽離，避免把答案 (B) 誤拆成第 5 個選項）
+        pending_inline_ans = ""
+        pending_inline_exp = ""
+        if not re.match(r'^(?:[【\[]\s*)?(?:標準答案|正確答案|參考答案|答案|Ans|Answer|Key|正解|解答|解析|詳解|說明|解說)', line, re.IGNORECASE):
+            inline_label_re = re.compile(
+                r'([【\[（(])\s*(?:標準答案|正確答案|參考答案|答案|解答|正解|Answer|Ans)\s*[】\]）)]\s*[:：]?\s*|'
+                r'([【\[（(])\s*(?:標準答案|正確答案|參考答案|答案|解答|正解|Answer|Ans)\s*[:：]\s*|'
+                r'(?:標準答案|正確答案|參考答案|答案|解答|正解)\s*[:：]\s*|'
+                r'(?<![A-Za-z])(?:Answer|Ans)\s*[:：]\s*',
+                re.IGNORECASE,
+            )
+            matches_lbl = [m for m in inline_label_re.finditer(line) if m.start() > 0]
+            if matches_lbl:
+                last_m = matches_lbl[-1]
+                before_ans = line[:last_m.start()].strip()
+                after_ans = line[last_m.end():].strip()
+                open_wrap = last_m.group(2) or ""
+                if open_wrap and after_ans:
+                    close_map = {'（': '）', '(': ')', '【': '】', '[': ']'}
+                    exp_close = close_map.get(open_wrap)
+                    if exp_close and after_ans.endswith(exp_close):
+                        opens = len(re.findall(r'[（(【\[]', after_ans))
+                        closes = len(re.findall(r'[）)】\]]', after_ans))
+                        if closes > opens:
+                            after_ans = after_ans[:-len(exp_close)].strip()
+                exp_tail = re.match(r'^(.*?)(?:[；;]\s*|\s+)(?:【?(?:解析|詳解|說明|解說|Rationale|Explanation)】?)[：:\s]*(.+)$', after_ans, re.IGNORECASE)
+                if exp_tail and exp_tail.group(1).strip():
+                    after_ans = exp_tail.group(1).strip()
+                    pending_inline_exp = exp_tail.group(2).strip()
+                after_ans = re.sub(
+                    r'^((?:[（(\[]\s*[A-Ta-tO○⭕X╳✕✘TF是否對錯1-6]\s*[）)\]][,，、/\s]*)+|[A-Ta-tO○⭕X╳✕✘TF是否對錯]|正確|錯誤)\s+\d+(?:,\s*\d+)*\s*$',
+                    r'\1',
+                    after_ans,
+                    flags=re.IGNORECASE,
+                ).strip()
+                valid_prefix = bool(before_ans) and not re.match(r'^(?:第\s*\d+\s*題|Q\s*\d+|\d+)[.、．:：\s]*$', before_ans, re.IGNORECASE) and not re.match(r'^(?:[（(\[]\s*[A-Ta-t1-6]\s*[）)\]]|[A-Ta-t][.、．]|[①②③④⑤⑥])\s*$', before_ans)
+                valid_ans = bool(
+                    re.match(r'^(?:[（(\[]\s*[A-Ta-tO○⭕X╳✕✘TF是否對錯1-6]\s*[）)\]][,，、/&\s]*)+$', after_ans, re.IGNORECASE) or
+                    re.match(r'^(?:正確|錯誤|True|False|YES|NO|[O○⭕X╳✕✘TF是否對錯]|[A-Ta-t](?:\s*[,，、/&]\s*[A-Ta-t])*|[A-Ha-h]{2,6}|[1-6](?:\s*[,，、]\s*[1-6])*)$', after_ans, re.IGNORECASE)
+                )
+                if valid_prefix and valid_ans:
+                    line = before_ans
+                    pending_inline_ans = after_ans
+                else:
+                    pending_inline_exp = ""
+
+        # 檢查題尾答案（排除含有多個選項的行）
+        tail_ans = (not pending_inline_ans) and re.match(r'^(.*?)\s*[（(]\s*([A-Ha-hO○⭕X╳✕✘F是丵否對錯1-6])\s*[）)]\s*$', line, re.IGNORECASE)
+        if tail_ans and not re.match(r'^\s*(?:答案|解析)', line) and not re.search(r'[（(][A-Ha-h][）)]', tail_ans.group(1)):
             stem = tail_ans.group(1).strip()
             ans = tail_ans.group(2).upper()
             if current_section == 'TF' or ans in 'OXTF是否對錯12':
@@ -427,24 +479,29 @@ def normalize_freeform_quiz_text(raw_text: str):
 
         # 11. 同一行多選項拆分（包含附帶來源引用與無空格黏合選項）
         # 例如: 1(A) 優先滿足... (B) ... 1(C) ... (D) ...
-        opt_matches = list(re.finditer(r'(?:(?:\s*\d+(?:,\s*\d+)*)?\s*|^)(?:[（(\[]([A-Ha-h1-6])[）)\]]|(?:^|\s+)([A-Ha-h])[.、．](?![A-Za-z])|([①②③④⑤⑥]))\s*', line))
-        if len(opt_matches) >= 2:
+        opt_matches = list(re.finditer(r'(?:(?:\s+\d+(?:,\s*\d+)*)?\s*|^)(?:[（(\[]([A-Ha-h])[）)\]]|(?:^|\s+)([A-Ha-h])[.、．](?![A-Za-z0-9])|([①②③④⑤⑥]))\s*', line))
+        first_lbl = (opt_matches[0].group(1) or opt_matches[0].group(2) or opt_matches[0].group(3)) if len(opt_matches) >= 2 else ''
+        second_lbl = (opt_matches[1].group(1) or opt_matches[1].group(2) or opt_matches[1].group(3)) if len(opt_matches) >= 2 else ''
+        if len(opt_matches) >= 2 and first_lbl in 'Aa①' and second_lbl in 'Bb②':
             prefix = line[:opt_matches[0].start()].strip()
-            prefix = re.sub(r'\s*\d+(?:,\s*\d+)*\s*$', '', prefix)
+            prefix = re.sub(r'(?<=[？?。！!：:）)])\s*\d+(?:,\s*\d+)*\s*$', '', prefix).strip()
             if prefix:
                 output_lines.append(prefix)
             for k, cur in enumerate(opt_matches):
                 nxt = opt_matches[k+1].start() if k + 1 < len(opt_matches) else len(line)
                 opt_txt = line[cur.end():nxt].strip()
-                opt_txt = re.sub(r'\s*\d+(?:,\s*\d+)*\s*$', '', opt_txt)
+                opt_txt = re.sub(r'(?<=[\u4e00-\u9fff）)！!。？?])\s+\d+(?:,\s*\d+)*\s*$', '', opt_txt).strip()
+                opt_txt = re.sub(r'(\S+(?:年|次|公噸|國家|左右|多項|以上|以下|成|五))\s+\d+(?:,\s*\d+)*\s*$', r'\1', opt_txt).strip()
                 lbl = cur.group(1) or cur.group(2) or cur.group(3)
                 if lbl in '①②③④⑤⑥':
                     lbl = chr(ord('A') + '①②③④⑤⑥'.index(lbl))
-                elif re.match(r'^[1-6]$', lbl):
-                    lbl = chr(ord('A') + int(lbl) - 1)
                 else:
                     lbl = lbl.upper()
                 output_lines.append(f"({lbl}) {opt_txt}")
+            if pending_inline_ans:
+                output_lines.append(f"答案：{pending_inline_ans}")
+            if pending_inline_exp:
+                output_lines.append(f"解析：{pending_inline_exp}")
             i += 1
             continue
 
@@ -459,12 +516,20 @@ def normalize_freeform_quiz_text(raw_text: str):
             else:
                 lbl = lbl.upper()
             opt_txt = single_opt.group(4).strip()
-            opt_txt = re.sub(r'\s*\d+(?:,\s*\d+)*\s*$', '', opt_txt)
+            opt_txt = re.sub(r'(?<=[\u4e00-\u9fff）)！!。？?])\s+\d+(?:,\s*\d+)*\s*$', '', opt_txt).strip()
             output_lines.append(f"({lbl}) {opt_txt}")
+            if pending_inline_ans:
+                output_lines.append(f"答案：{pending_inline_ans}")
+            if pending_inline_exp:
+                output_lines.append(f"解析：{pending_inline_exp}")
             i += 1
             continue
 
         output_lines.append(line)
+        if pending_inline_ans:
+            output_lines.append(f"答案：{pending_inline_ans}")
+        if pending_inline_exp:
+            output_lines.append(f"解析：{pending_inline_exp}")
         i += 1
 
     normalized_text = re.sub(r'\n{3,}', '\n\n', "\n".join(output_lines)).strip()
