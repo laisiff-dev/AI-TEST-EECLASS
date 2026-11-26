@@ -1,1446 +1,1410 @@
-/**
- * ee-Class 智慧題目轉換系統 - 主程式邏輯 (App Controller) - Pro 2026
- * 整合 Tools_QB 架構：
- * 1. 支援 Word (.docx)、Markdown (.md)、純文字 (.txt) 檔案拖曳與即時抽取
- * 2. 支援 5 大題型視覺化編輯：是非、單選、複選、填充、問答
- * 3. 支援題庫「類別 (Category)」全域設定與個別調整
- * 4. 支援 UTF-8 BOM CSV、Big5 副本 CSV (CP950) 與 GIFT 匯出
- * 5. 嚴格防呆檢核與診斷對照
- */
+/* app.js — ee-Class 智慧考題轉題庫整合系統 UI 控制器 */
+(function () {
+  "use strict";
 
-document.addEventListener('DOMContentLoaded', () => {
-  // 核心狀態
-  let state = {
+  const QB = window.ExamQB;
+  const $ = (id) => document.getElementById(id);
+
+  const state = {
     questions: [],
-    activeTab: 'parser',
-    currentFilter: 'all',
-    searchQuery: '',
-    globalCategory: '',
-    fontSize: localStorage.getItem('eeclass_font_size') || 'md',
-    theme: localStorage.getItem('eeclass_theme') || 'dark'
+    sourceFileName: "exam",
+    pendingBinaryBase64: null,
+    pendingMimeType: "",
+    pendingFileName: "",
+    pendingTextExtracted: false,
+    activeFilter: "all",
+    searchKeyword: "",
+    fontSize: "md",
+    lastNormSummary: "",
+    validatorQuestions: [],
+    validatorFileName: "exam",
+    lectureText: "",
+    lectureFileName: "",
+    lecturePdfBase64: null,
+    lectureMimeType: "",
+    lectureIsScanned: false,
   };
 
-  // SDGs 自由格式真實考卷範例（非標準排版，示範二段式智慧調整）
-  const SAMPLE_SDGS_FREEFORM_TEXT = `國立大學 112學年度 通識教育核心課程：永續發展目標 (SDGs) 期末核心素養測驗
-考試時間：50分鐘   姓名：_____________   學號：_____________
-※ 作答說明：請仔細閱讀題目後作答，題目包含是非題、單選題、複選題、填空題與簡答題。
-
-【一、是非判斷題】
-( O ) 1. 聯合國於2015年9月正式通過「2030永續發展議程」，宣布了17項永續發展目標（SDGs）。
-( X ) 2. SDGs 僅適用於低收入或開發中國家，台灣與歐美等已開發國家無須落實執行。
-3. SDGs 的核心不遺漏精神為「Leave No One Behind」（不遺漏任何人）。 (對)
-4. ( 2 ) SDG 13「氣候行動」僅指減少碳排放，不包含氣候變遷的調適與韌性建構。
-【說明】氣候行動包含減緩（Mitigation）與調適（Adaptation）兩大面向。
-
-【二、單選測驗題】
-( C ) 1. 聯合國宣布的永續發展目標（SDGs）共包含幾項核心目標與具體目標？
-(A) 15項核心目標、150項具體目標  (B) 16項核心目標、160項具體目標  (C) 17項核心目標、169項具體目標  (D) 18項核心目標、172項具體目標
-【解析】SDGs共有17項核心目標 (Goals) 與169項具體目標 (Targets)。
-
-2. 請問「確保所有人都能享有水及衛生及其永續管理」是屬於哪一項SDG？
-A. SDG 4 優質教育
-B. SDG 6 淨水及衛生
-C. SDG 7 可負擔的潔淨能源
-D. SDG 11 永續城鄉
-Ans: B
-
-3. 關於永續發展的三大支柱（Three Pillars of Sustainability），下列何者「不屬於」其中之一？
-(1) 經濟成長  (2) 社會包容  (3) 環境保護  (4) 軍事擴張
-正解：4
-說明：三大支柱為經濟（Economic）、社會（Social）、環境（Environmental）。
-
-【三、多重選擇題】
-1. 下列哪些目標直接與地球自然環境與生態保育密切相關？
-(A) SDG 13 氣候行動
-(B) SDG 14 保育海洋生態
-(C) SDG 15 保育陸域生態
-(D) SDG 10 減少不平等
-答案：A, B, C
-解析：SDG 13、14、15合稱為生物圈（Biosphere）層級的環境目標；SDG 10為社會層級。
-
-2. 企業在推動 ESG 與 SDGs 結合時，常見的「E (Environmental)」環境構面指標包含哪些？
-(A) 溫室氣體盤查與減碳 (B) 水資源管理與循環利用 (C) 董事會多元化 (D) 廢棄物減量與資源再生
-【答案】A、B、D
-【詳解】(C) 董事會多元化屬於 G（Governance 公司治理）範疇。
-
-【四、填空題】
-1. 聯合國 SDGs 的最高核心承諾為__________(不遺漏任何人)（英文為 Leave No One Behind）。
-2. 在永續發展目標中，SDG 7 主張確保所有人都能取得負擔得起、可靠且永續的【潔淨能源】。
-
-【五、簡答題】
-1. 請簡述聯合國提出「SDGs 永續發展目標」的核心目的為何？
-答案：旨在消除貧窮、保護地球環境、促進全球夥伴關係，確保至2030年所有人都能享有和平與繁榮。`;
-
-  // 預設 5 大題型全功能範例題庫
-  const SAMPLE_AI_TEXT = `# 第一章 環境微生物學基礎與應用
-類別：環境微生物學基礎
-
-一、是非題
-1. 細菌（Bacteria）與古菌（Archaea）皆屬原核生物，但在細胞膜脂質與細胞壁組成上存在重要差異。
-答案：O
-解析：兩者都沒有真正細胞核，但古菌常具有醚鍵脂質，且細胞壁不具典型細菌式肽聚糖。
-難易度：適中
-
-2. 藍綠菌（Cyanobacteria）屬於真核藻類，因此具有真正細胞核。
-答案：X
-解析：藍綠菌屬細菌域，為原核生物，不具有真正細胞核。
-難易度：容易
-
-二、單選題
-1. 下列何者最能區分原核細胞與真核細胞？
-(A) 是否具有真正由核膜包覆的細胞核
-(B) 是否能進行能量代謝
-(C) 是否含有DNA
-(D) 是否可存在於水環境中
-答案：A
-解析：原核細胞沒有真正由核膜包覆的細胞核；真核細胞則有。
-難易度：適中
-
-2. 在解析度公式 d≈0.61λ/NA 中，若其他條件相同，數值孔徑（NA）增加時 d 會：
-(A) 增加
-(B) 減少
-(C) 不變
-(D) 先增加再減少
-答案：B
-解析：d 越小代表可分辨更接近的兩點，因此解析度更好。
-難易度：適中
-
-三、複選題
-[類別：生物脫氮與溫室氣體]
-1. 關於廢水生物脫氮與溫室氣體生成，下列哪些敘述正確？
-(A) 硝化作用是由氨氧化菌與亞硝酸氧化菌共同完成
-(B) 脫氮作用（反硝化）主要在好氧條件下進行
-(C) 溶氧不足或亞硝酸鹽累積容易導致 N2O 溫室氣體釋放
-(D) 反硝化菌通常需要碳源作為電子提供者
-答案：(A)(C)(D)
-解析：脫氮作用（反硝化）是在缺氧/無氧條件下進行，因此 (B) 錯誤；其餘皆正確。
-難易度：困難
-
-2. 近年來在環境流行病學中，曾引發全球跨國監測之新型呼吸道病原體包含：
-(A) H1N1新型流感病毒
-(B) SARS-CoV-2 新冠病毒
-(C) 枯草芽孢桿菌
-(D) MERS-CoV 中東呼吸道症候群冠狀病毒
-答案：A, B, D
-解析：枯草芽孢桿菌（Bacillus subtilis）為常見土壤益菌，並非跨國流行呼吸道病原體。
-難易度：適中
-
-四、填充題
-[類別：環境法規與指標參數]
-1. H1N1新型流感自民國[*98*]年[*6*]月[*19*]日自第一類法定傳染病刪除。
-答案：98, 6, 19
-解析：請牢記疾病管制署公佈之法定傳染病分類調整日期。
-難易度：適中
-
-2. 大氣中造成全球暖化效應最劇烈的三大主要溫室氣體分別為二氧化碳（CO2）、[*甲烷*]（CH4）與[*氧化亞氮*]（N2O）。
-答案：甲烷, 氧化亞氮
-解析：依據 IPCC 評估報告，CH4 與 N2O 增溫潛勢遠高於 CO2。
-難易度：容易
-
-五、問答題
-[類別：緊急應變與實驗室安全]
-1. 請簡述燒燙傷急救處理五步驟「沖、脫、泡、蓋、送」之標準操作要領。
-答案：1. 沖：以流動冷水沖洗傷口15~30分鐘降溫。2. 脫：在水中小心剪開或脫去衣物。3. 泡：持續在冷水中浸泡傷口。4. 蓋：使用乾淨無菌紗布覆蓋。5. 送：儘速送醫治療。
-解析：正確冷水降溫與保護創面可大幅降低組織熱傷害與後續感染風險。
-難易度：適中
-`;
-
-  // DOM 元素快取
-  const dom = {
-    // 統計指標
-    statTotal: document.getElementById('stat-total'),
-    statTf: document.getElementById('stat-tf'),
-    statSingle: document.getElementById('stat-single'),
-    statMulti: document.getElementById('stat-multi'),
-    statFill: document.getElementById('stat-fill'),
-    statEssay: document.getElementById('stat-essay'),
-    statWarning: document.getElementById('stat-warning'),
-    tabBadgeCount: document.getElementById('tab-badge-count'),
-
-    // 頁籤按鈕與容器
-    tabBtns: document.querySelectorAll('.tab-btn'),
-    tabContents: document.querySelectorAll('.tab-content'),
-
-    // 檔案拖曳與輸入區
-    dropzone: document.getElementById('upload-dropzone'),
-    fileUploader: document.getElementById('file-uploader'),
-    rawInput: document.getElementById('raw-quiz-input'),
-    charCount: document.getElementById('input-char-count'),
-    btnParse: document.getElementById('btn-parse-text'),
-    btnAutoNormalize: document.getElementById('btn-auto-normalize'),
-    btnLoadSdgsSample: document.getElementById('btn-load-sdgs-sample'),
-    btnLoadSample: document.getElementById('btn-load-sample'),
-    btnClearInput: document.getElementById('btn-clear-input'),
-    btnGotoManual: document.getElementById('btn-goto-manual'),
-    btnGuideToManual: document.getElementById('btn-guide-to-manual'),
-
-    // 全域類別
-    globalCategoryInput: document.getElementById('global-category-input'),
-    btnApplyGlobalCat: document.getElementById('btn-apply-global-cat'),
-
-    // 編輯器區
-    stage2WorkflowBanner: document.getElementById('stage2-workflow-banner'),
-    stage2NormBadge: document.getElementById('stage2-norm-badge'),
-    stage2NormCount: document.getElementById('stage2-norm-count'),
-    stage2BannerDesc: document.getElementById('stage2-banner-desc'),
-    btnFilterAutoNormalized: document.getElementById('btn-filter-auto-normalized'),
-    normFilterBadgeCount: document.getElementById('norm-filter-badge-count'),
-    pillFilterNormalized: document.getElementById('pill-filter-normalized'),
-    questionsList: document.getElementById('questions-container'),
-    emptyState: document.getElementById('empty-state'),
-    filterBtns: document.querySelectorAll('.filter-pill'),
-    searchInput: document.getElementById('search-questions-input'),
-    btnAddQuestion: document.getElementById('btn-add-question'),
-    btnClearQuestions: document.getElementById('btn-clear-questions'),
-    fontSizeBtns: document.querySelectorAll('.btn-font-size'),
-
-    // 匯出按鈕
-    btnExportCsv: document.getElementById('btn-export-csv'),
-    btnExportBig5: document.getElementById('btn-export-big5'),
-    btnExportGift: document.getElementById('btn-export-gift'),
-    btnThemeToggle: document.getElementById('btn-theme-toggle'),
-
-    // 檢核防呆診斷彈出視窗
-    diagModal: document.getElementById('diagnostics-modal'),
-    modalIssuesList: document.getElementById('modal-issues-list'),
-    modalErrCount: document.getElementById('modal-err-count'),
-    modalWarnCount: document.getElementById('modal-warn-count'),
-    modalBtnGoEditor: document.getElementById('modal-btn-go-editor'),
-    modalBtnManual: document.getElementById('modal-btn-manual'),
-    modalBtnDismiss: document.getElementById('modal-btn-dismiss'),
-
-    // Toast
-    toastContainer: document.getElementById('toast-container')
+  const STORAGE_KEYS = {
+    theme: "exam_qb_theme",
+    apiKey: "exam_qb_gemini_key",
+    checklist: "exam_qb_gemini_checklist_v1",
+    fontSize: "exam_qb_font_size",
   };
 
-  /**
-   * 初始化
-   */
-  function init() {
-    applyTheme(state.theme);
-    applyFontSize(state.fontSize);
-    bindEvents();
-    loadFromLocalStorage();
-    updateStats();
-    updateStage2WorkflowBanner();
-    updateCharCount();
+  // ===== Toast =====
+  let toastTimer = null;
+  function showToast(msg) {
+    const el = $("toast");
+    el.textContent = msg;
+    el.classList.add("show");
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => el.classList.remove("show"), 2800);
   }
 
-  /**
-   * 套用題目顯示字型大小
-   */
-  function applyFontSize(size) {
-    state.fontSize = size;
-    localStorage.setItem('eeclass_font_size', size);
-    if (dom.questionsList) {
-      dom.questionsList.classList.remove('font-size-sm', 'font-size-md', 'font-size-lg', 'font-size-xl');
-      dom.questionsList.classList.add(`font-size-${size}`);
+  // ===== 主題切換 =====
+  function initTheme() {
+    const saved = localStorage.getItem(STORAGE_KEYS.theme);
+    if (saved === "light" || saved === "dark") {
+      document.documentElement.setAttribute("data-theme", saved);
     }
-    if (dom.fontSizeBtns) {
-      dom.fontSizeBtns.forEach(btn => {
-        btn.classList.toggle('active', btn.dataset.size === size);
-      });
+    updateThemeButton();
+    $("btn-theme").addEventListener("click", () => {
+      const cur = document.documentElement.getAttribute("data-theme");
+      const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+      const isDark = cur ? cur === "dark" : prefersDark;
+      const next = isDark ? "light" : "dark";
+      document.documentElement.setAttribute("data-theme", next);
+      localStorage.setItem(STORAGE_KEYS.theme, next);
+      updateThemeButton();
+    });
+  }
+
+  function updateThemeButton() {
+    const cur = document.documentElement.getAttribute("data-theme");
+    const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+    const isDark = cur ? cur === "dark" : prefersDark;
+    $("btn-theme").textContent = isDark ? "☀️ 亮色" : "🌙 暗色";
+  }
+
+  // ===== 主分頁切換 =====
+  function switchMainTab(tabName) {
+    document.querySelectorAll(".nav-tab").forEach((btn) => {
+      btn.setAttribute("aria-selected", btn.dataset.tab === tabName ? "true" : "false");
+    });
+    document.querySelectorAll(".tab-panel").forEach((panel) => {
+      panel.hidden = panel.id !== `tab-${tabName}`;
+    });
+    try {
+      history.replaceState(null, "", `#${tabName}`);
+    } catch (_) {}
+  }
+
+  function initTabs() {
+    document.querySelectorAll(".nav-tab").forEach((btn) => {
+      btn.addEventListener("click", () => switchMainTab(btn.dataset.tab));
+    });
+    const hash = location.hash.replace(/^#/, "");
+    if (["converter", "editor", "validator", "prompts", "guide"].includes(hash)) {
+      switchMainTab(hash);
     }
   }
 
-  /**
-   * 套用主題色彩
-   */
-  function applyTheme(theme) {
-    if (theme === 'light') {
-      document.body.classList.add('light-theme');
-    } else {
-      document.body.classList.remove('light-theme');
-    }
-    localStorage.setItem('eeclass_theme', theme);
+  // ===== 通用工具 =====
+  function triggerDownload(blob, filename) {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
 
-  /**
-   * 繫結所有使用者互動事件
-   */
-  function bindEvents() {
-    // 主題切換
-    if (dom.btnThemeToggle) {
-      dom.btnThemeToggle.addEventListener('click', () => {
-        state.theme = state.theme === 'dark' ? 'light' : 'dark';
-        applyTheme(state.theme);
-        showToast(state.theme === 'dark' ? '已切換為深邃暗黑模式' : '已切換為簡約明亮模式', 'info');
-      });
+  async function copyText(text, okMsg) {
+    try {
+      await navigator.clipboard.writeText(text);
+      showToast(okMsg || "已複製到剪貼簿");
+    } catch (_) {
+      const ta = document.createElement("textarea");
+      ta.value = text;
+      ta.style.position = "fixed";
+      ta.style.left = "-9999px";
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand("copy");
+      ta.remove();
+      showToast(okMsg || "已複製到剪貼簿");
+    }
+  }
+
+  function baseFileName(name) {
+    return (name || "exam").replace(/\.[^.]+$/, "") || "exam";
+  }
+
+  function arrayBufferToBase64(buf) {
+    const bytes = new Uint8Array(buf);
+    let binary = "";
+    const chunk = 0x8000;
+    for (let i = 0; i < bytes.length; i += chunk) {
+      binary += String.fromCharCode.apply(null, bytes.subarray(i, i + chunk));
+    }
+    return btoa(binary);
+  }
+
+  function escapeHtml(s) {
+    return String(s == null ? "" : s)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;");
+  }
+
+  function clearPendingBinary() {
+    state.pendingBinaryBase64 = null;
+    state.pendingMimeType = "";
+    state.pendingFileName = "";
+    state.pendingTextExtracted = false;
+  }
+
+  // ===== Tab 1：全格式匯入與解析 =====
+  function initConverter() {
+    const savedKey = localStorage.getItem(STORAGE_KEYS.apiKey);
+    if (savedKey) {
+      $("gemini-api-key").value = savedKey;
+      $("gemini-save-key").checked = true;
     }
 
-    // 頁籤切換
-    dom.tabBtns.forEach(btn => {
-      btn.addEventListener('click', () => {
-        const target = btn.dataset.tab;
-        switchTab(target);
-      });
+    $("gemini-save-key").addEventListener("change", syncApiKeyStorage);
+    $("gemini-api-key").addEventListener("input", syncApiKeyStorage);
+
+    document.querySelectorAll('input[name="parse-mode"]').forEach((r) => {
+      r.addEventListener("change", updateParseModeUI);
     });
-
-    // 快捷跳轉手冊
-    if (dom.btnGotoManual) dom.btnGotoManual.addEventListener('click', () => switchTab('manual'));
-    if (dom.btnGuideToManual) dom.btnGuideToManual.addEventListener('click', () => switchTab('manual'));
-
-    // 檔案拖曳與上傳處理 (Tools_QB 核心邏輯)
-    if (dom.dropzone && dom.fileUploader) {
-      dom.dropzone.addEventListener('click', () => dom.fileUploader.click());
-
-      dom.fileUploader.addEventListener('change', (e) => {
-        if (e.target.files && e.target.files.length > 0) {
-          handleUploadedFile(e.target.files[0]);
-        }
-      });
-
-      dom.dropzone.addEventListener('dragover', (e) => {
-        e.preventDefault();
-        dom.dropzone.classList.add('drag-active');
-      });
-      dom.dropzone.addEventListener('dragleave', () => {
-        dom.dropzone.classList.remove('drag-active');
-      });
-      dom.dropzone.addEventListener('drop', (e) => {
-        e.preventDefault();
-        dom.dropzone.classList.remove('drag-active');
-        if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-          handleUploadedFile(e.dataTransfer.files[0]);
-        }
-      });
-    }
-
-    // 全域類別套用按鈕
-    if (dom.btnApplyGlobalCat && dom.globalCategoryInput) {
-      dom.btnApplyGlobalCat.addEventListener('click', () => {
-        const cat = dom.globalCategoryInput.value.trim();
-        state.globalCategory = cat;
-        if (state.questions.length > 0) {
-          state.questions.forEach(q => {
-            q.category = cat;
-          });
-          renderQuestionsList();
-          saveToLocalStorage();
-          showToast(`已將全域類別「${cat || '（無類別）'}」套用到全部 ${state.questions.length} 道題目！`, 'success');
-        } else {
-          showToast('目前尚無題目，解析題目後將自動套用此類別', 'info');
-        }
-      });
-    }
-
-    // 輸入區即時字數統計
-    if (dom.rawInput) {
-      dom.rawInput.addEventListener('input', () => {
-        updateCharCount();
-      });
-    }
-
-    // 自由格式智慧重構 (Auto-Normalize - 第一階段)
-    if (dom.btnAutoNormalize) {
-      dom.btnAutoNormalize.addEventListener('click', () => {
-        const text = dom.rawInput.value.trim();
-        if (!text) {
-          showToast('請先貼上題目內容或拖曳考題檔！', 'warning');
-          return;
-        }
-        const norm = QuizParser.normalizeFreeformQuizText(text);
-        dom.rawInput.value = norm.normalizedText;
-        updateCharCount();
-        if (norm.detectedCategory && dom.globalCategoryInput && !dom.globalCategoryInput.value.trim()) {
-          dom.globalCategoryInput.value = norm.detectedCategory;
-        }
-        if (norm.stats.extractedAnswers > 0 || norm.stats.splitOptions > 0 || norm.stats.convertedBlanks > 0 || norm.stats.cleanedHeaders) {
-          showToast(`🪄 智慧重構完成！${norm.summaryMessage}`, 'success');
-        } else {
-          showToast('題目格式已十分工整標準！可直接點擊「立即智慧解析並預覽」進入第二階段。', 'info');
-        }
-      });
-    }
-
-    // 載入 SDGs 自由格式題庫範例
-    if (dom.btnLoadSdgsSample) {
-      dom.btnLoadSdgsSample.addEventListener('click', () => {
-        dom.rawInput.value = SAMPLE_SDGS_FREEFORM_TEXT;
-        if (dom.globalCategoryInput) dom.globalCategoryInput.value = '永續發展目標 (SDGs)';
-        updateCharCount();
-        showToast('🌿 已載入「SDGs 永續發展自由格式題庫」！可點擊「🪄 自由格式智慧重構」檢視調整效果，或直接點擊「🚀 立即智慧解析並預覽」體驗二段式校對！', 'info');
-      });
-    }
-
-    // 載入範例題目
-    if (dom.btnLoadSample) {
-      dom.btnLoadSample.addEventListener('click', () => {
-        dom.rawInput.value = SAMPLE_AI_TEXT;
-        updateCharCount();
-        showToast('已載入 5 大題型綜合範例題庫！點擊下方按鈕即可立即解析', 'info');
-      });
-    }
-
-    // 篩選僅看智慧規格化題目
-    if (dom.btnFilterAutoNormalized && dom.pillFilterNormalized) {
-      dom.btnFilterAutoNormalized.addEventListener('click', () => {
-        dom.pillFilterNormalized.click();
-      });
-    }
-
-    // 清空輸入
-    if (dom.btnClearInput) {
-      dom.btnClearInput.addEventListener('click', () => {
-        if (confirm('確定要清空輸入區文字嗎？')) {
-          dom.rawInput.value = '';
-          updateCharCount();
-          showToast('輸入區已清空', 'info');
-        }
-      });
-    }
-
-    // 解析文字
-    if (dom.btnParse) {
-      dom.btnParse.addEventListener('click', () => {
-        parseInputText();
-      });
-    }
-
-    // 新增題目
-    if (dom.btnAddQuestion) {
-      dom.btnAddQuestion.addEventListener('click', () => {
-        addNewQuestion();
-      });
-    }
-
-    // 清空全部題目
-    if (dom.btnClearQuestions) {
-      dom.btnClearQuestions.addEventListener('click', () => {
-        if (!state.questions || state.questions.length === 0) {
-          showToast('目前題庫已是清空狀態！', 'info');
-          return;
-        }
-        if (confirm(`確定要清空目前全部 ${state.questions.length} 道題目嗎？此動作將清除當前編輯的所有題目，且無法復原！`)) {
-          state.questions = [];
-          saveToLocalStorage();
-          updateStats();
-          updateStage2WorkflowBanner();
-          renderQuestionsList();
-          showToast('已清空全部題目', 'info');
-        }
-      });
-    }
-
-    // 動態調整題目顯示字級大小
-    if (dom.fontSizeBtns && dom.fontSizeBtns.length > 0) {
-      dom.fontSizeBtns.forEach(btn => {
-        btn.addEventListener('click', () => {
-          const size = btn.dataset.size;
-          applyFontSize(size);
-          const sizeName = { sm: '小 (16px)', md: '標準 (18px)', lg: '大 (21px)', xl: '特大 (24px)' }[size] || size;
-          showToast(`已調整題目字型大小為「${sizeName}」`, 'info');
-        });
-      });
-    }
-
-    // 篩選標籤
-    dom.filterBtns.forEach(pill => {
-      pill.addEventListener('click', () => {
-        dom.filterBtns.forEach(p => p.classList.remove('active'));
-        pill.classList.add('active');
-        state.currentFilter = pill.dataset.filter;
-        renderQuestionsList();
-      });
+    $("gemini-model").addEventListener("change", () => {
+      $("gemini-custom-model-wrap").hidden = $("gemini-model").value !== "__custom__";
     });
+    updateParseModeUI();
 
-    // 搜尋框
-    if (dom.searchInput) {
-      dom.searchInput.addEventListener('input', (e) => {
-        state.searchQuery = e.target.value.toLowerCase().trim();
-        renderQuestionsList();
-      });
-    }
-
-    // 匯出 ee-Class CSV (UTF-8 with BOM)
-    if (dom.btnExportCsv) {
-      dom.btnExportCsv.addEventListener('click', () => {
-        exportQuiz('csv_utf8');
-      });
-    }
-
-    // 匯出 Big5 副本 CSV (CP950)
-    if (dom.btnExportBig5) {
-      dom.btnExportBig5.addEventListener('click', () => {
-        exportQuiz('csv_big5');
-      });
-    }
-
-    // 匯出 GIFT 格式
-    if (dom.btnExportGift) {
-      dom.btnExportGift.addEventListener('click', () => {
-        exportQuiz('gift');
-      });
-    }
-
-    // 複製範例代碼按鈕
-    document.querySelectorAll('[data-copy-target]').forEach(btn => {
-      btn.addEventListener('click', () => {
-        const targetId = btn.dataset.copyTarget;
-        const targetElem = document.getElementById(targetId);
-        if (targetElem) {
-          const textToCopy = targetElem.innerText || targetElem.textContent;
-          navigator.clipboard.writeText(textToCopy).then(() => {
-            showToast('已成功複製範本內容到剪貼簿！', 'success');
-          }).catch(() => {
-            showToast('複製失敗，請手動反白選取複製', 'error');
-          });
-        }
-      });
+    // Drag & Drop 檔案
+    const dz = $("drop-zone");
+    const fi = $("file-input");
+    dz.addEventListener("click", () => fi.click());
+    dz.addEventListener("dragover", (e) => {
+      e.preventDefault();
+      dz.classList.add("dragover");
     });
-
-    // 彈出視窗按鈕與遮罩關閉
-    if (dom.modalBtnGoEditor) {
-      dom.modalBtnGoEditor.addEventListener('click', () => {
-        closeDiagnosticsModal();
-        switchTab('editor');
-        const warnPill = document.querySelector('.filter-pill[data-filter="warning"]');
-        if (warnPill) warnPill.click();
-      });
-    }
-    if (dom.modalBtnManual) {
-      dom.modalBtnManual.addEventListener('click', () => {
-        closeDiagnosticsModal();
-        switchTab('manual');
-      });
-    }
-    if (dom.modalBtnDismiss) {
-      dom.modalBtnDismiss.addEventListener('click', () => {
-        closeDiagnosticsModal();
-      });
-    }
-
-    const btnCloseX = document.getElementById('modal-btn-close-x');
-    if (btnCloseX) {
-      btnCloseX.addEventListener('click', () => {
-        closeDiagnosticsModal();
-      });
-    }
-
-    // 點擊背景遮罩關閉
-    if (dom.diagModal) {
-      dom.diagModal.addEventListener('click', (e) => {
-        if (e.target === dom.diagModal) {
-          closeDiagnosticsModal();
-        }
-      });
-    }
-
-    // ESC 鍵關閉
-    document.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape' && dom.diagModal && dom.diagModal.classList.contains('active')) {
-        closeDiagnosticsModal();
+    dz.addEventListener("dragleave", () => dz.classList.remove("dragover"));
+    dz.addEventListener("drop", (e) => {
+      e.preventDefault();
+      dz.classList.remove("dragover");
+      if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+        handleExamFile(e.dataTransfer.files[0]);
       }
     });
-  }
-
-  /**
-   * 處理檔案上傳（支援 .docx / .txt / .md / .csv）
-   */
-  async function handleUploadedFile(file) {
-    if (!file) return;
-    const name = file.name;
-    const ext = name.substring(name.lastIndexOf('.')).toLowerCase();
-
-    showToast(`正在讀取檔案「${name}」...`, 'info');
-
-    try {
-      if (ext === '.docx') {
-        // 使用 JSZip 讀取 Word document.xml
-        if (typeof JSZip === 'undefined') {
-          showToast('JSZip 模組正在加載中，請稍候重試', 'error');
-          return;
-        }
-        const zip = await JSZip.loadAsync(file);
-        const docXml = await zip.file('word/document.xml').async('text');
-        const parser = new DOMParser();
-        const xmlDoc = parser.parseFromString(docXml, 'text/xml');
-        const paragraphs = xmlDoc.getElementsByTagName('w:p');
-        const lines = [];
-
-        for (let i = 0; i < paragraphs.length; i++) {
-          const textNodes = paragraphs[i].getElementsByTagName('w:t');
-          let pText = '';
-          for (let j = 0; j < textNodes.length; j++) {
-            pText += textNodes[j].textContent || '';
-          }
-          lines.push(pText);
-        }
-        const extractedText = lines.join('\n');
-        dom.rawInput.value = extractedText;
-        updateCharCount();
-        showToast(`已成功由 Word「${name}」抽取 ${paragraphs.length} 個段落，正在自動解析...`, 'success');
-        parseInputText();
-      } else if (['.txt', '.md', '.csv', '.tsv'].includes(ext)) {
-        const reader = new FileReader();
-        reader.onload = (e) => {
-          dom.rawInput.value = e.target.result;
-          updateCharCount();
-          showToast(`已成功載入「${name}」，正在自動解析...`, 'success');
-          parseInputText();
-        };
-        reader.readAsText(file, 'utf-8');
-      } else {
-        showToast(`不支援的檔案格式「${ext}」，請使用 .docx、.txt 或 .md`, 'error');
-      }
-    } catch (err) {
-      console.error('File parsing error:', err);
-      showToast(`檔案讀取失敗: ${err.message}`, 'error');
-    }
-  }
-
-  /**
-   * 切換分頁標籤
-   */
-  function switchTab(tabId) {
-    state.activeTab = tabId;
-    dom.tabBtns.forEach(btn => {
-      btn.classList.toggle('active', btn.dataset.tab === tabId);
+    fi.addEventListener("change", () => {
+      if (fi.files && fi.files[0]) handleExamFile(fi.files[0]);
+      fi.value = "";
     });
-    dom.tabContents.forEach(content => {
-      content.classList.toggle('active', content.id === `tab-${tabId}`);
+
+    // 三個一鍵載入範例
+    $("btn-load-sample").addEventListener("click", () => {
+      clearPendingBinary();
+      state.sourceFileName = "sample";
+      $("default-category").value = "資訊安全";
+      $("raw-text").value = QB.SAMPLE_EXAM_TEXT;
+      setFileStatus("alert-ok", "已載入官方 9 題練習範例（Tools_QB sample.docx 內容，五種題型完整涵蓋）");
+      runParse();
     });
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  }
 
-  /**
-   * 更新字數統計
-   */
-  function updateCharCount() {
-    if (dom.rawInput && dom.charCount) {
-      const len = dom.rawInput.value.length;
-      dom.charCount.innerText = `${len.toLocaleString()} 字`;
-    }
-  }
+    $("btn-load-sdgs").addEventListener("click", () => {
+      clearPendingBinary();
+      state.sourceFileName = "SDGs_永續發展測驗";
+      $("default-category").value = "";
+      $("raw-text").value = QB.SAMPLE_SDGS_TEXT;
+      setFileStatus("alert-purple", "已載入 SDGs 自由排版示範（含 NotebookLM 黏合選項、四欄解答表、題首括號答案、①②③④、底線填空）");
+      runParse();
+    });
 
-  /**
-   * 解析輸入文字
-   */
-  function parseInputText() {
-    const text = dom.rawInput.value.trim();
-    if (!text) {
-      showToast('請先貼上題目內容或拖曳考題檔！', 'warning');
-      return;
-    }
+    $("btn-load-env").addEventListener("click", () => {
+      clearPendingBinary();
+      state.sourceFileName = "環境微生物學_範例";
+      $("default-category").value = "";
+      $("raw-text").value = QB.SAMPLE_ENV_TEXT;
+      setFileStatus("alert-ok", "已載入環境微生物學 5 大題型多章節範例（AI-TEST-EECLASS 範例）");
+      runParse();
+    });
 
-    try {
-      const parsed = QuizParser.parseQuizText(text);
-      if (parsed.length === 0) {
-        showToast('無法辨識出任何題目，請參閱右側或「格式規範手冊」檢查標題格式。', 'error');
+    // 第一階段手動預覽「自由格式智慧重構」
+    $("btn-auto-normalize").addEventListener("click", () => {
+      const raw = $("raw-text").value;
+      if (!raw.trim()) {
+        showToast("請先貼上或上傳考題文字");
         return;
       }
-
-      // 若檢測出考卷主題，且全域類別為空，自動填入全域類別
-      if (parsed.detectedCategory && dom.globalCategoryInput && !dom.globalCategoryInput.value.trim()) {
-        dom.globalCategoryInput.value = parsed.detectedCategory;
+      const norm = QB.normalizeFreeformQuizText(raw);
+      $("raw-text").value = norm.normalizedText;
+      if (norm.detectedCategory && !$("default-category").value.trim()) {
+        $("default-category").value = norm.detectedCategory;
       }
-
-      // 若有全域類別且題目未填類別，自動套用
-      const globalCat = dom.globalCategoryInput ? dom.globalCategoryInput.value.trim() : '';
-      if (globalCat) {
-        parsed.forEach(q => {
-          if (!q.category) q.category = globalCat;
-        });
-      }
-
-      state.questions = parsed;
-      saveToLocalStorage();
-      updateStats();
-      updateStage2WorkflowBanner();
-      renderQuestionsList();
-      switchTab('editor');
-
-      // 執行嚴格檢核
-      const validation = QuizParser.validateQuestions(state.questions);
-      const normCount = state.questions.filter(q => q.wasAutoNormalized).length;
-      if (validation.isValid) {
-        if (normCount > 0) {
-          showToast(`🎉 成功解析 ${parsed.length} 題（其中 ${normCount} 題經第一階段智慧重構自動對齊）！請進行第二階段覆核。`, 'success');
-        } else {
-          showToast(`🎉 成功解析 ${parsed.length} 道題目！通過 100% 格式防呆檢核！`, 'success');
-        }
-      } else {
-        showToast(`解析出 ${parsed.length} 道題目，但發現 ${validation.errorCount} 道題目有瑕疵，請在下方卡片中校對！`, 'warning');
-      }
-    } catch (err) {
-      console.error('Parser error:', err);
-      showToast('解析時發生非預期錯誤，請檢查文字中是否有特殊符號。', 'error');
-    }
-  }
-
-  /**
-   * 更新頂部數據指標
-   */
-  function updateStats() {
-    const total = state.questions.length;
-    let tfCount = 0;
-    let singleCount = 0;
-    let multiCount = 0;
-    let fillCount = 0;
-    let essayCount = 0;
-    let warningCount = 0;
-
-    state.questions.forEach(q => {
-      if (q.type === 1) tfCount++;
-      else if (q.type === 2) singleCount++;
-      else if (q.type === 3) multiCount++;
-      else if (q.type === 4) fillCount++;
-      else if (q.type === 5) essayCount++;
-
-      // 檢查是否有答案未設定
-      if (q.type === 1 && (q.answer !== 1 && q.answer !== 2)) warningCount++;
-      else if (q.type === 2 && (!q.answer || q.answer < 1 || q.answer > (q.options ? q.options.length : 0))) warningCount++;
-      else if (q.type === 3 && (!q.answer || !String(q.answer).trim())) warningCount++;
-      else if (q.type === 4 && (!q.stem || !/\[\*([^*]+)\*\]/.test(q.stem))) warningCount++;
+      const banner = $("parse-banner");
+      banner.className = "alert alert-purple";
+      banner.textContent = `🪄 第一階段智慧重構完成！${norm.summaryMessage}（您可檢查上方文字，再點「🚀 開始解析考題」）`;
+      banner.hidden = false;
+      showToast("已完成自由格式智慧重構");
     });
 
-    if (dom.statTotal) dom.statTotal.innerText = total;
-    if (dom.statTf) dom.statTf.innerText = tfCount;
-    if (dom.statSingle) dom.statSingle.innerText = singleCount;
-    if (dom.statMulti) dom.statMulti.innerText = multiCount;
-    if (dom.statFill) dom.statFill.innerText = fillCount;
-    if (dom.statEssay) dom.statEssay.innerText = essayCount;
-    if (dom.tabBadgeCount) dom.tabBadgeCount.innerText = total;
-
-    if (dom.statWarning) {
-      if (warningCount > 0) {
-        dom.statWarning.style.display = 'inline-flex';
-        dom.statWarning.innerHTML = `⚠️ 待修正: <strong>${warningCount}</strong>`;
-      } else {
-        dom.statWarning.style.display = 'none';
-      }
-    }
-  }
-
-  /**
-   * 更新第二階段工作流橫幅狀態 (Two-Stage Workflow Banner)
-   */
-  function updateStage2WorkflowBanner() {
-    if (!dom.stage2WorkflowBanner) return;
-    const total = state.questions.length;
-    if (total === 0) {
-      dom.stage2WorkflowBanner.style.display = 'none';
-      return;
-    }
-    dom.stage2WorkflowBanner.style.display = 'flex';
-
-    const normCount = state.questions.filter(q => q.wasAutoNormalized).length;
-    if (dom.stage2NormCount) dom.stage2NormCount.innerText = normCount;
-    if (dom.normFilterBadgeCount) dom.normFilterBadgeCount.innerText = normCount;
-
-    if (dom.stage2BannerDesc) {
-      if (normCount > 0) {
-        dom.stage2BannerDesc.innerHTML = `第一階段智慧重構引擎已自動調整 <strong>${normCount}</strong> 道非標準題目（自題幹括號提取答案、展開併排選項或重構填空標籤）。請在下方卡片中快速手動覆核；若需微調答案、選項或題型，可直接點擊卡片修改，零瑕疵確認後即可安心匯出！`;
-        if (dom.stage2NormBadge) dom.stage2NormBadge.style.display = 'inline-flex';
-      } else {
-        dom.stage2BannerDesc.innerHTML = `所有題目格式皆完全標準！請在下方卡片快速檢視確認，若需微調可隨時修改，確認無誤後即可點擊右上角匯出 ee-Class 官方 CSV 或 Big5 副本。`;
-        if (dom.stage2NormBadge) dom.stage2NormBadge.style.display = 'none';
-      }
-    }
-  }
-
-  /**
-   * 渲染題目預覽卡片清單
-   */
-  function renderQuestionsList() {
-    if (!dom.questionsList) return;
-    dom.questionsList.innerHTML = '';
-
-    let filtered = state.questions.filter(q => {
-      // 題型篩選
-      if (state.currentFilter === 'single' && q.type !== 2) return false;
-      if (state.currentFilter === 'tf' && q.type !== 1) return false;
-      if (state.currentFilter === 'multi' && q.type !== 3) return false;
-      if (state.currentFilter === 'fill' && q.type !== 4) return false;
-      if (state.currentFilter === 'essay' && q.type !== 5) return false;
-      if (state.currentFilter === 'normalized' && !q.wasAutoNormalized) return false;
-      if (state.currentFilter === 'warning') {
-        const hasAns = (q.type === 1 && (q.answer === 1 || q.answer === 2)) ||
-                       (q.type === 2 && q.answer >= 1 && q.answer <= (q.options ? q.options.length : 0)) ||
-                       (q.type === 3 && q.answer) ||
-                       (q.type === 4 && /\[\*([^*]+)\*\]/.test(q.stem || '')) ||
-                       (q.type === 5);
-        if (hasAns) return false;
-      }
-
-      // 搜尋篩選
-      if (state.searchQuery) {
-        const stemMatch = (q.stem || '').toLowerCase().includes(state.searchQuery);
-        const expMatch = (q.explanation || '').toLowerCase().includes(state.searchQuery);
-        const catMatch = (q.category || '').toLowerCase().includes(state.searchQuery);
-        const optMatch = Array.isArray(q.options) && q.options.some(opt => opt.toLowerCase().includes(state.searchQuery));
-        if (!stemMatch && !expMatch && !optMatch && !catMatch) return false;
-      }
-
-      return true;
+    $("btn-clear-input").addEventListener("click", () => {
+      clearPendingBinary();
+      state.sourceFileName = "exam";
+      $("raw-text").value = "";
+      $("file-status").hidden = true;
+      $("parse-banner").hidden = true;
     });
 
-    if (filtered.length === 0) {
-      if (dom.emptyState) dom.emptyState.style.display = 'block';
-      return;
+    $("btn-parse").addEventListener("click", runParse);
+  }
+
+  function setFileStatus(cls, text) {
+    const el = $("file-status");
+    el.className = `alert ${cls}`;
+    el.textContent = text;
+    el.hidden = false;
+  }
+
+  function syncApiKeyStorage() {
+    if ($("gemini-save-key").checked) {
+      localStorage.setItem(STORAGE_KEYS.apiKey, $("gemini-api-key").value.trim());
     } else {
-      if (dom.emptyState) dom.emptyState.style.display = 'none';
+      localStorage.removeItem(STORAGE_KEYS.apiKey);
     }
-
-    filtered.forEach((q, displayIdx) => {
-      const card = createQuestionCard(q, displayIdx + 1);
-      dom.questionsList.appendChild(card);
-    });
   }
 
-  /**
-   * 建立單道題目卡片 DOM
-   */
-  function createQuestionCard(q, displayIndex) {
-    const card = document.createElement('div');
-    card.className = 'glass-panel question-card';
-    card.dataset.id = q.id;
+  function getSelectedParseMode() {
+    const checked = document.querySelector('input[name="parse-mode"]:checked');
+    return checked ? checked.value : "offline";
+  }
 
-    // 題型設定
-    let typeName = '單選題';
-    let typeClass = 'badge-type-2';
-    if (q.type === 1) { typeName = '是非題'; typeClass = 'badge-type-1'; }
-    else if (q.type === 2) { typeName = '單選題'; typeClass = 'badge-type-2'; }
-    else if (q.type === 3) { typeName = '複選題'; typeClass = 'badge-type-3'; }
-    else if (q.type === 4) { typeName = '填充題'; typeClass = 'badge-type-4'; }
-    else if (q.type === 5) { typeName = '問答題'; typeClass = 'badge-type-5'; }
+  function updateParseModeUI() {
+    $("gemini-config").hidden = getSelectedParseMode() !== "gemini";
+  }
 
-    // 檢核此題是否有瑕疵
-    let hasError = false;
-    let errorMsg = '';
-    if (q.type === 1 && q.answer !== 1 && q.answer !== 2) {
-      hasError = true; errorMsg = '未設定正確答案 (是/否)';
-    } else if (q.type === 2 && (!q.answer || q.answer < 1 || q.answer > (q.options ? q.options.length : 0))) {
-      hasError = true; errorMsg = '未設定選項答案或超出選項數';
-    } else if (q.type === 3 && (!q.answer || !String(q.answer).trim())) {
-      hasError = true; errorMsg = '未勾選複選正確答案';
-    } else if (q.type === 4 && (!q.stem || !/\[\*([^*]+)\*\]/.test(q.stem))) {
-      hasError = true; errorMsg = '題幹缺少 [*空格答案*] 標記';
+  async function handleExamFile(file) {
+    const name = file.name || "exam";
+    const ext = name.toLowerCase().split(".").pop();
+    state.sourceFileName = baseFileName(name);
+    clearPendingBinary();
+
+    if (ext === "doc" || ext === "xls") {
+      setFileStatus("alert-error", `不支援舊版二進位格式 (.${ext})，請先另存為 .docx / .xlsx / .pdf 再上傳。`);
+      return;
     }
 
-    // 卡片頂部
-    const header = document.createElement('div');
-    header.className = 'q-card-header';
-    header.innerHTML = `
-      <div class="q-card-title-group">
-        <span class="q-num-badge">#${q.index || displayIndex}</span>
-        <select class="q-type-select" title="點擊切換題型，或選擇刪除此題">
-          <option value="1" ${q.type === 1 ? 'selected' : ''}>📝 是非題</option>
-          <option value="2" ${q.type === 2 ? 'selected' : ''}>🔘 單選題</option>
-          <option value="3" ${q.type === 3 ? 'selected' : ''}>☑️ 複選題</option>
-          <option value="4" ${q.type === 4 ? 'selected' : ''}>✏️ 填充題</option>
-          <option value="5" ${q.type === 5 ? 'selected' : ''}>📄 問答題</option>
-          <option disabled>──────────</option>
-          <option value="delete" class="opt-delete-action">🗑️ 刪除此題</option>
-        </select>
-        <div class="card-category-field" title="所屬類別 / 章節名稱">
-          🏷️ <input type="text" class="card-cat-input" value="${escapeHtml(q.category || '')}" placeholder="無類別（點此輸入）">
-        </div>
-        ${q.wasAutoNormalized ? `<span class="badge-auto-normalized" title="${escapeHtml(q.normalizeReason || '經第一階段智慧重構自動對齊，請手動確認')}">🪄 智慧規格化</span>` : ''}
-        ${hasError ? `<span class="badge-status-error" title="${errorMsg}">⚠️ ${errorMsg}</span>` : ''}
-      </div>
-      <div class="q-card-actions">
-        <button class="btn-icon btn-move-up" title="向上移動" ${displayIndex === 1 ? 'disabled' : ''}>▲</button>
-        <button class="btn-icon btn-move-down" title="向下移動" ${displayIndex === state.questions.length ? 'disabled' : ''}>▼</button>
-        <button class="btn-icon btn-duplicate" title="複製題目">📑</button>
-        <button class="btn-icon btn-delete" title="刪除此題">🗑️</button>
-      </div>
-    `;
-
-    // 題型即時切換與刪除處理
-    const typeSelect = header.querySelector('.q-type-select');
-    if (typeSelect) {
-      typeSelect.addEventListener('change', (e) => {
-        const selectedVal = e.target.value;
-        if (selectedVal === 'delete') {
-          // 先復原選單選項至原題型，避免若使用者取消確認對話框時仍停留在「刪除此題」
-          e.target.value = String(q.type);
-          deleteQuestion(q.id);
-          return;
-        }
-
-        const newType = parseInt(selectedVal, 10);
-        q.type = newType;
-        if (newType === 1) { // 是非題
-          q.options = [];
-          if (q.answer !== 1 && q.answer !== 2) q.answer = null;
-        } else if (newType === 2 || newType === 3) { // 選擇題
-          if (!q.options || q.options.length < 2) {
-            q.options = ['選項 A', '選項 B', '選項 C', '選項 D'];
-          }
-          if (newType === 2 && (typeof q.answer !== 'number' || q.answer < 1)) q.answer = 1;
-          if (newType === 3 && typeof q.answer !== 'string') q.answer = '1';
-        } else if (newType === 4) { // 填充題
-          q.options = [];
-          q.answer = '';
-          if (!/\[\*([^*]+)\*\]/.test(q.stem)) {
-            q.stem += ' [*答案*]';
-          }
-        } else if (newType === 5) { // 問答題
-          q.options = [];
-        }
-        saveToLocalStorage();
-        updateStats();
-        updateStage2WorkflowBanner();
-        renderQuestionsList();
-        showToast(`已將第 ${displayIndex} 題切換為「${e.target.options[e.target.selectedIndex].text}」`, 'info');
-      });
-    }
-
-    // 類別即時編輯
-    const catInput = header.querySelector('.card-cat-input');
-    catInput.addEventListener('change', (e) => {
-      q.category = e.target.value.trim();
-      saveToLocalStorage();
-    });
-
-    // 移動 / 複製 / 刪除
-    header.querySelector('.btn-move-up').addEventListener('click', () => moveQuestion(q.id, -1));
-    header.querySelector('.btn-move-down').addEventListener('click', () => moveQuestion(q.id, 1));
-    header.querySelector('.btn-duplicate').addEventListener('click', () => duplicateQuestion(q.id));
-    header.querySelector('.btn-delete').addEventListener('click', () => deleteQuestion(q.id));
-
-    // 題幹文字編輯
-    const stemGroup = document.createElement('div');
-    stemGroup.className = 'form-group';
-    stemGroup.innerHTML = `
-      <label class="form-label" style="display:flex; justify-content:space-between; align-items:center;">
-        <span>題幹文字：</span>
-        ${q.type === 4 ? `<button class="btn btn-secondary btn-sm btn-insert-blank">➕ 插入 [*答案*] 標記</button>` : ''}
-      </label>
-      <textarea class="form-input q-stem-input" rows="3" placeholder="請在此輸入題幹內容...">${escapeHtml(q.stem || '')}</textarea>
-    `;
-    const stemTextarea = stemGroup.querySelector('.q-stem-input');
-    stemTextarea.addEventListener('input', (e) => {
-      q.stem = e.target.value;
-      saveToLocalStorage();
-      updateStats();
-    });
-
-    if (q.type === 4) {
-      const btnInsert = stemGroup.querySelector('.btn-insert-blank');
-      btnInsert.addEventListener('click', (e) => {
-        e.preventDefault();
-        const start = stemTextarea.selectionStart;
-        const end = stemTextarea.selectionEnd;
-        const val = stemTextarea.value;
-        const selected = val.substring(start, end) || '空格答案';
-        stemTextarea.value = val.substring(0, start) + `[*${selected}*]` + val.substring(end);
-        q.stem = stemTextarea.value;
-        saveToLocalStorage();
-        renderQuestionsList();
-      });
-    }
-
-    // 核心作答與選項區 (依 5 大題型區分)
-    const answerContainer = document.createElement('div');
-    answerContainer.className = 'answer-interactive-area';
-
-    // 1. 是非題 (Type 1)
-    if (q.type === 1) {
-      answerContainer.innerHTML = `
-        <div class="tf-btn-group">
-          <button class="tf-btn ${q.answer === 1 ? 'selected' : ''}" data-val="1">
-            ⭕ 是 (True / 正確)
-          </button>
-          <button class="tf-btn ${q.answer === 2 ? 'selected' : ''}" data-val="2">
-            ❌ 否 (False / 錯誤)
-          </button>
-        </div>
-      `;
-      answerContainer.querySelectorAll('.tf-btn').forEach(btn => {
-        btn.addEventListener('click', () => {
-          q.answer = parseInt(btn.dataset.val, 10);
-          saveToLocalStorage();
-          updateStats();
-          renderQuestionsList();
-        });
-      });
-    }
-    // 2. 單選題 (Type 2)
-    else if (q.type === 2) {
-      const optList = document.createElement('div');
-      optList.className = 'options-edit-list';
-      const opts = Array.isArray(q.options) ? q.options : [];
-
-      opts.forEach((optText, optIdx) => {
-        const letter = String.fromCharCode(65 + optIdx);
-        const isCorrect = q.answer === (optIdx + 1);
-        const optRow = document.createElement('div');
-        optRow.className = `option-item ${isCorrect ? 'is-correct' : ''}`;
-        optRow.innerHTML = `
-          <button class="opt-select-btn ${isCorrect ? 'active' : ''}" title="設為正確答案">
-            ${isCorrect ? '●' : '○'}
-          </button>
-          <span class="opt-letter">${letter}.</span>
-          <input type="text" class="opt-text-input form-input" value="${escapeHtml(optText || '')}">
-          <button class="opt-del-btn" title="刪除選項">×</button>
-        `;
-
-        optRow.querySelector('.opt-select-btn').addEventListener('click', () => {
-          q.answer = optIdx + 1;
-          saveToLocalStorage();
-          updateStats();
-          renderQuestionsList();
-        });
-
-        optRow.querySelector('.opt-text-input').addEventListener('input', (e) => {
-          q.options[optIdx] = e.target.value;
-          saveToLocalStorage();
-        });
-
-        optRow.querySelector('.opt-del-btn').addEventListener('click', () => {
-          if (q.options.length <= 2) {
-            showToast('單選題至少需保留 2 個選項！', 'warning');
-            return;
-          }
-          q.options.splice(optIdx, 1);
-          if (q.answer === optIdx + 1) q.answer = null;
-          else if (q.answer > optIdx + 1) q.answer--;
-          saveToLocalStorage();
-          updateStats();
-          renderQuestionsList();
-        });
-
-        optList.appendChild(optRow);
-      });
-
-      const addOptBtn = document.createElement('button');
-      addOptBtn.className = 'btn btn-secondary btn-sm';
-      addOptBtn.style.marginTop = '0.5rem';
-      addOptBtn.innerText = '➕ 新增選項';
-      addOptBtn.addEventListener('click', () => {
-        if (q.options.length >= 20) {
-          showToast('ee-Class 最多支援 20 個選項！', 'warning');
-          return;
-        }
-        q.options.push('新選項');
-        saveToLocalStorage();
-        renderQuestionsList();
-      });
-
-      answerContainer.appendChild(optList);
-      answerContainer.appendChild(addOptBtn);
-    }
-    // 3. 複選題 (Type 3)
-    else if (q.type === 3) {
-      const optList = document.createElement('div');
-      optList.className = 'options-edit-list';
-      const opts = Array.isArray(q.options) ? q.options : [];
-      const selectedAnswers = String(q.answer || '')
-        .split(',')
-        .map(n => parseInt(n.trim(), 10))
-        .filter(n => !isNaN(n));
-
-      opts.forEach((optText, optIdx) => {
-        const letter = String.fromCharCode(65 + optIdx);
-        const isChecked = selectedAnswers.includes(optIdx + 1);
-        const optRow = document.createElement('div');
-        optRow.className = `option-item multi-choice-item ${isChecked ? 'is-correct' : ''}`;
-        optRow.innerHTML = `
-          <div class="custom-checkbox ${isChecked ? 'checked' : ''}" title="勾選為正確答案">
-            ${isChecked ? '✓' : ''}
-          </div>
-          <span class="opt-letter" style="color:var(--accent-emerald);">${letter}.</span>
-          <input type="text" class="opt-text-input form-input" value="${escapeHtml(optText || '')}">
-          <button class="opt-del-btn" title="刪除選項">×</button>
-        `;
-
-        const chkBox = optRow.querySelector('.custom-checkbox');
-        chkBox.addEventListener('click', () => {
-          let updated = [...selectedAnswers];
-          const num = optIdx + 1;
-          if (updated.includes(num)) {
-            updated = updated.filter(n => n !== num);
-          } else {
-            updated.push(num);
-          }
-          updated.sort((a, b) => a - b);
-          q.answer = updated.join(',');
-          saveToLocalStorage();
-          updateStats();
-          renderQuestionsList();
-        });
-
-        optRow.querySelector('.opt-text-input').addEventListener('input', (e) => {
-          q.options[optIdx] = e.target.value;
-          saveToLocalStorage();
-        });
-
-        optRow.querySelector('.opt-del-btn').addEventListener('click', () => {
-          if (q.options.length <= 2) {
-            showToast('複選題至少需保留 2 個選項！', 'warning');
-            return;
-          }
-          q.options.splice(optIdx, 1);
-          // 重新計算答案編號
-          let updated = selectedAnswers
-            .filter(n => n !== optIdx + 1)
-            .map(n => (n > optIdx + 1 ? n - 1 : n))
-            .sort((a, b) => a - b);
-          q.answer = updated.join(',');
-          saveToLocalStorage();
-          updateStats();
-          renderQuestionsList();
-        });
-
-        optList.appendChild(optRow);
-      });
-
-      const addOptBtn = document.createElement('button');
-      addOptBtn.className = 'btn btn-secondary btn-sm';
-      addOptBtn.style.marginTop = '0.5rem';
-      addOptBtn.innerText = '➕ 新增複選選項';
-      addOptBtn.addEventListener('click', () => {
-        if (q.options.length >= 20) {
-          showToast('ee-Class 最多支援 20 個選項！', 'warning');
-          return;
-        }
-        q.options.push('新選項');
-        saveToLocalStorage();
-        renderQuestionsList();
-      });
-
-      answerContainer.appendChild(optList);
-      answerContainer.appendChild(addOptBtn);
-    }
-    // 4. 填充題 (Type 4)
-    else if (q.type === 4) {
-      const blanks = [];
-      const bRegex = /\[\*([^*]+)\*\]/g;
-      let bm;
-      while ((bm = bRegex.exec(q.stem || '')) !== null) {
-        blanks.push(bm[1].trim());
+    // JSON 題庫備份還原
+    if (ext === "json") {
+      try {
+        const text = await file.text();
+        const data = JSON.parse(text);
+        const list = Array.isArray(data) ? data : Array.isArray(data.questions) ? data.questions : null;
+        if (!list) throw new Error("JSON 內找不到 questions 陣列");
+        state.questions = list.map((item) => QB.normalizeQuestion(item, data.category || ""));
+        if (data.category) $("default-category").value = data.category;
+        setFileStatus("alert-ok", `已還原 JSON 題庫備份：${name}（共 ${state.questions.length} 題），已切換至編輯器。`);
+        renderEditor();
+        switchMainTab("editor");
+      } catch (err) {
+        setFileStatus("alert-error", `還原 JSON 失敗：${err.message}`);
       }
-
-      answerContainer.innerHTML = `
-        <div class="fillin-editor-wrapper">
-          <div class="fillin-tags-title">
-            <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg>
-            題幹中萃取出的答案空格 (共 ${blanks.length} 格)：
-          </div>
-          <div class="fillin-tags-container">
-            ${blanks.length > 0 ? blanks.map((b, i) => `<span class="fillin-tag-pill">第 ${i+1} 格: ${escapeHtml(b)}</span>`).join('') : '<span style="color:var(--accent-rose); font-size:0.85rem;">⚠️ 尚未偵測到空格，請在題幹中以 [*答案*] 標記！</span>'}
-          </div>
-          <div class="fillin-settings-grid">
-            <div class="fillin-setting-item">
-              <label>選項 1: 英文大小寫比對</label>
-              <select class="fillin-opt1-select">
-                <option value="1" ${q.caseSensitive === 1 ? 'selected' : ''}>1: 不分英文大小寫 (預設)</option>
-                <option value="2" ${q.caseSensitive === 2 ? 'selected' : ''}>2: 區分英文大小寫</option>
-              </select>
-            </div>
-            <div class="fillin-setting-item">
-              <label>選項 2: 填答順序比對</label>
-              <select class="fillin-opt2-select">
-                <option value="1" ${q.ordered === 1 ? 'selected' : ''}>1: 不考慮順序 (預設)</option>
-                <option value="2" ${q.ordered === 2 ? 'selected' : ''}>2: 需考慮順序</option>
-              </select>
-            </div>
-          </div>
-        </div>
-      `;
-
-      answerContainer.querySelector('.fillin-opt1-select').addEventListener('change', (e) => {
-        q.caseSensitive = parseInt(e.target.value, 10);
-        saveToLocalStorage();
-      });
-      answerContainer.querySelector('.fillin-opt2-select').addEventListener('change', (e) => {
-        q.ordered = parseInt(e.target.value, 10);
-        saveToLocalStorage();
-      });
-    }
-    // 5. 問答題 (Type 5)
-    else if (q.type === 5) {
-      answerContainer.innerHTML = `
-        <div class="essay-editor-wrapper">
-          <label>📝 參考答案 / 評分標準：</label>
-          <textarea class="essay-ans-input" rows="3" placeholder="請在此輸入參考答案內容...">${escapeHtml(q.answer || '')}</textarea>
-        </div>
-      `;
-      answerContainer.querySelector('.essay-ans-input').addEventListener('input', (e) => {
-        q.answer = e.target.value;
-        saveToLocalStorage();
-      });
+      return;
     }
 
-    // 解析與難易度底欄
-    const metaRow = document.createElement('div');
-    metaRow.className = 'q-meta-row';
-    metaRow.innerHTML = `
-      <div class="form-group" style="flex: 1; margin-bottom: 0;">
-        <label class="form-label">題目解析 / 說明：</label>
-        <input type="text" class="form-input q-exp-input" value="${escapeHtml(q.explanation || '')}" placeholder="建議填寫詳解，便於考後檢討">
-      </div>
-      <div class="form-group" style="width: 140px; margin-bottom: 0;">
-        <label class="form-label">難易度：</label>
-        <select class="form-input q-diff-select">
-          <option value="1" ${q.difficulty === 1 ? 'selected' : ''}>容易</option>
-          <option value="2" ${q.difficulty === 2 ? 'selected' : ''}>適中</option>
-          <option value="3" ${q.difficulty === 3 ? 'selected' : ''}>困難</option>
-        </select>
-      </div>
-    `;
+    // PDF：優先離線抽取文字（免 API Key！）；若為純掃描圖片 PDF 則自動切至 Gemini AI 視覺辨識
+    if (ext === "pdf") {
+      try {
+        setFileStatus("alert", `⏳ 正在離線解析 PDF：${name}，請稍候...`);
+        const buf = await file.arrayBuffer();
+        state.pendingBinaryBase64 = arrayBufferToBase64(buf);
+        state.pendingMimeType = "application/pdf";
+        state.pendingFileName = name;
 
-    metaRow.querySelector('.q-exp-input').addEventListener('input', (e) => {
-      q.explanation = e.target.value;
-      saveToLocalStorage();
-    });
-    metaRow.querySelector('.q-diff-select').addEventListener('change', (e) => {
-      q.difficulty = parseInt(e.target.value, 10);
-      saveToLocalStorage();
-    });
-
-    card.appendChild(header);
-    card.appendChild(stemGroup);
-    card.appendChild(answerContainer);
-    card.appendChild(metaRow);
-
-    return card;
-  }
-
-  /**
-   * 題目上下排序
-   */
-  function moveQuestion(id, direction) {
-    const idx = state.questions.findIndex(q => q.id === id);
-    if (idx === -1) return;
-    const targetIdx = idx + direction;
-    if (targetIdx < 0 || targetIdx >= state.questions.length) return;
-
-    const temp = state.questions[idx];
-    state.questions[idx] = state.questions[targetIdx];
-    state.questions[targetIdx] = temp;
-
-    // 重新編定 index
-    state.questions.forEach((q, i) => q.index = i + 1);
-
-    saveToLocalStorage();
-    renderQuestionsList();
-  }
-
-  /**
-   * 複製題目
-   */
-  function duplicateQuestion(id) {
-    const target = state.questions.find(q => q.id === id);
-    if (!target) return;
-    const copy = JSON.parse(JSON.stringify(target));
-    copy.id = 'q_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
-    copy.stem = copy.stem + ' (副本)';
-    const idx = state.questions.findIndex(q => q.id === id);
-    state.questions.splice(idx + 1, 0, copy);
-    state.questions.forEach((q, i) => q.index = i + 1);
-    saveToLocalStorage();
-    updateStats();
-    renderQuestionsList();
-    showToast('已複製題目', 'info');
-  }
-
-  /**
-   * 刪除題目
-   */
-  function deleteQuestion(id) {
-    const qItem = state.questions.find(q => q.id === id);
-    const qNum = qItem ? (qItem.index || '') : '';
-    const stemSnippet = qItem && qItem.stem ? (qItem.stem.slice(0, 36) + (qItem.stem.length > 36 ? '...' : '')) : '';
-    const confirmPrompt = stemSnippet
-      ? `確定要刪除第 ${qNum} 題嗎？\n\n「${stemSnippet}」\n\n此動作無法復原。`
-      : `確定要刪除第 ${qNum} 題嗎？此動作無法復原。`;
-    if (confirm(confirmPrompt)) {
-      state.questions = state.questions.filter(q => q.id !== id);
-      state.questions.forEach((q, i) => q.index = i + 1);
-      saveToLocalStorage();
-      updateStats();
-      updateStage2WorkflowBanner();
-      renderQuestionsList();
-      showToast(`第 ${qNum} 題已成功刪除`, 'info');
+        const pdfRes = await QB.extractPdfText(buf.slice(0));
+        if (!pdfRes.isLikelyScanned) {
+          state.pendingTextExtracted = true;
+          $("raw-text").value = pdfRes.text;
+          setFileStatus(
+            "alert-ok",
+            `已離線抽取 PDF 文字：${name}（共 ${pdfRes.pageCount} 頁、${pdfRes.text.length} 字）。可直接按「🚀 開始解析考題」（免 API Key）；若原檔為複雜多欄／圖表排版，亦可切換至「✨ Gemini AI 全能解析」直讀原檔！`
+          );
+        } else {
+          state.pendingTextExtracted = false;
+          $("raw-text").value = `[已載入掃描型 PDF：${name}（共 ${pdfRes.pageCount} 頁，${(file.size / 1024).toFixed(1)} KB）]\n此 PDF 沒有內嵌可選取文字，已自動切換至 Gemini AI 多模態 OCR 辨識模式。`;
+          document.querySelector('input[name="parse-mode"][value="gemini"]').checked = true;
+          updateParseModeUI();
+          setFileStatus(
+            "alert-warn",
+            `偵測到「${name}」（共 ${pdfRes.pageCount} 頁）為掃描圖片型 PDF（無文字層），已自動切換為 ✨ Gemini AI 模式；填入 API Key 後按「🚀 開始解析考題」即可辨識！`
+          );
+        }
+      } catch (err) {
+        setFileStatus("alert-error", `讀取 PDF 失敗：${err.message}`);
+      }
+      return;
     }
-  }
 
-  /**
-   * 新增一道題目
-   */
-  function addNewQuestion() {
-    const newQ = {
-      id: 'q_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9),
-      index: state.questions.length + 1,
-      type: 2, // 預設單選題
-      category: state.globalCategory || '',
-      stem: '請在此輸入新題幹內容...',
-      options: ['選項 A', '選項 B', '選項 C', '選項 D'],
-      answer: 1,
-      explanation: '',
-      difficulty: 2,
-      caseSensitive: 1,
-      ordered: 1
+    // 考卷照片（PNG / JPG / WebP）→ 自動切換 Gemini AI 多模態解析
+    const mimeMap = {
+      png: "image/png",
+      jpg: "image/jpeg",
+      jpeg: "image/jpeg",
+      webp: "image/webp",
     };
-    state.questions.unshift(newQ);
-    state.questions.forEach((q, i) => q.index = i + 1);
-    saveToLocalStorage();
-    updateStats();
-    renderQuestionsList();
-    showToast('已新增題目至最頂端！', 'success');
+    if (mimeMap[ext]) {
+      try {
+        const buf = await file.arrayBuffer();
+        state.pendingBinaryBase64 = arrayBufferToBase64(buf);
+        state.pendingMimeType = mimeMap[ext];
+        state.pendingFileName = name;
+        state.pendingTextExtracted = false;
+        $("raw-text").value = `[已載入考卷照片：${name}（${mimeMap[ext]}，${(file.size / 1024).toFixed(1)} KB）]\n將由 Gemini AI 多模態引擎直接辨識圖片考題。`;
+        document.querySelector('input[name="parse-mode"][value="gemini"]').checked = true;
+        updateParseModeUI();
+        setFileStatus("alert-purple", `已載入 ${name}！請確認下方已填入 Gemini API Key，再點擊「🚀 開始解析考題」。`);
+      } catch (err) {
+        setFileStatus("alert-error", `讀取圖片失敗：${err.message}`);
+      }
+      return;
+    }
+
+    // Word (.docx)
+    if (ext === "docx") {
+      try {
+        const buf = await file.arrayBuffer();
+        const text = await QB.extractDocxText(buf);
+        $("raw-text").value = text;
+        setFileStatus("alert-ok", `已離線擷取 Word 考題（含表格）：${name}（共 ${text.length} 字）。按「🚀 開始解析考題」即可自動重構並轉換！`);
+      } catch (err) {
+        setFileStatus("alert-error", `讀取 .docx 失敗：${err.message}`);
+      }
+      return;
+    }
+
+    // Excel (.xlsx)
+    if (ext === "xlsx") {
+      try {
+        const buf = await file.arrayBuffer();
+        const matrix = await QB.extractXlsxRows(buf);
+        const directQs = QB.parseTableMatrixToQuestions(matrix, $("default-category").value.trim());
+        if (directQs && directQs.length > 0) {
+          state.questions = directQs;
+          state.lastNormSummary = `由 Excel (${name}) 直接辨識表格欄位，共匯入 ${directQs.length} 題。`;
+          setFileStatus("alert-ok", `已離線讀取 Excel 考題表：${name}（共 ${directQs.length} 題），已切換至編輯器核對！`);
+          renderEditor();
+          switchMainTab("editor");
+        } else {
+          const text = matrix.map((r) => r.join(" ")).join("\n");
+          $("raw-text").value = text;
+          setFileStatus("alert-warn", `已抽取 Excel 文字（${matrix.length} 列），未偵測到標準標題列，已放入下方文字框供規則或 AI 解析。`);
+        }
+      } catch (err) {
+        setFileStatus("alert-error", `讀取 .xlsx 失敗：${err.message}`);
+      }
+      return;
+    }
+
+    // CSV（若為 version: 4 直接導入驗收器，否則嘗試表格或文字解析）
+    if (ext === "csv") {
+      const buf = await file.arrayBuffer();
+      const { text, encoding } = QB.decodeFileBytesSmart(buf);
+      if (/^\s*version:\s*4/i.test(text)) {
+        $("csv-paste-input").value = text;
+        state.validatorFileName = state.sourceFileName;
+        switchMainTab("validator");
+        runCsvValidation();
+        showToast(`偵測到 ee-Class 27 欄 CSV（${encoding}），已自動進入驗收分頁`);
+        return;
+      }
+      const { rows } = QB.parseCsvMatrix(text);
+      const tableQs = QB.parseTableMatrixToQuestions(rows, $("default-category").value.trim());
+      if (tableQs && tableQs.length > 0) {
+        state.questions = tableQs;
+        state.lastNormSummary = `由 CSV 表格 (${name}) 自動對應欄位，共匯入 ${tableQs.length} 題。`;
+        renderEditor();
+        switchMainTab("editor");
+        showToast(`已從表格 CSV 匯入 ${tableQs.length} 題`);
+        return;
+      }
+      $("raw-text").value = text;
+      setFileStatus("alert-ok", `已讀取 CSV 文字：${name}（${encoding}）。`);
+      return;
+    }
+
+    // 純文字 / Markdown / TSV
+    if (["txt", "md", "tsv"].includes(ext)) {
+      const buf = await file.arrayBuffer();
+      const { text, encoding } = QB.decodeFileBytesSmart(buf);
+      $("raw-text").value = text;
+      setFileStatus("alert-ok", `已讀取文字檔：${name}（編碼：${encoding}，共 ${text.length} 字）。`);
+      return;
+    }
+
+    setFileStatus("alert-warn", `不支援的副檔名 (.${ext})，請改用 .docx、.xlsx、.pdf、圖片、.txt、.md、.csv 或 .json。`);
   }
 
-  /**
-   * 匯出題庫檔案 (核心執行防呆阻擋)
-   */
-  async function exportQuiz(formatType) {
-    if (state.questions.length === 0) {
-      showToast('目前題庫沒有任何題目可匯出！', 'warning');
+  async function runParse() {
+    const mode = getSelectedParseMode();
+    const defaultCategory = $("default-category").value.trim();
+    const rawText = $("raw-text").value.trim();
+    const banner = $("parse-banner");
+
+    if (!state.pendingBinaryBase64 && !rawText) {
+      banner.className = "alert alert-warn";
+      banner.textContent = "請先上傳考題檔、貼上考題文字，或點擊右上角任一範例按鈕試用。";
+      banner.hidden = false;
       return;
     }
 
-    // 嚴格檢核防呆
-    const validation = QuizParser.validateQuestions(state.questions);
-    if (!validation.isValid) {
-      openDiagnosticsModal(validation);
+    if (mode === "offline") {
+      if (state.pendingBinaryBase64 && !state.pendingTextExtracted) {
+        banner.className = "alert alert-warn";
+        banner.textContent = "此檔案為掃描圖片型 PDF 或考卷照片（無內嵌文字層），需切換到「✨ Gemini AI 全能解析」模式並填入 API Key 進行視覺辨識。";
+        banner.hidden = false;
+        return;
+      }
+      const parsed = QB.parseExamText(rawText, defaultCategory, { autoNormalize: true });
+      state.questions = parsed;
+      state.lastNormSummary = parsed.normInfo ? parsed.normInfo.summaryMessage : "";
+      if (parsed.length === 0) {
+        banner.className = "alert alert-warn";
+        banner.textContent = "離線規則解析未能切出題目。建議改切至「✨ Gemini AI 全能解析」處理非標準排版，或先點「🪄 自由格式智慧重構」檢查格式。";
+        banner.hidden = false;
+        return;
+      }
+      banner.className = "alert alert-ok";
+      banner.textContent = `解析完成！共擷取 ${parsed.length} 題。${state.lastNormSummary}`;
+      banner.hidden = false;
+      state.activeFilter = "all";
+      state.searchKeyword = "";
+      renderEditor();
+      switchMainTab("editor");
+      showToast(`已成功解析 ${parsed.length} 題`);
       return;
     }
 
-    const globalCat = dom.globalCategoryInput ? dom.globalCategoryInput.value.trim() : state.globalCategory;
-    const timestamp = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+    // Gemini AI 多模態全能解析
+    const apiKey = $("gemini-api-key").value.trim();
+    const modelSel = $("gemini-model").value;
+    const model = modelSel === "__custom__" ? $("gemini-custom-model").value.trim() : modelSel;
+
+    const btn = $("btn-parse");
+    const origText = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = "⏳ Gemini AI 解析中...";
+    banner.className = "alert alert-purple";
+    banner.textContent = `正在呼叫 Gemini (${model}) 進行智慧解析，請稍候...`;
+    banner.hidden = false;
 
     try {
-      if (formatType === 'csv_utf8') {
-        const csvContent = QuizExporter.generateEeclassCsv(state.questions, globalCat, { withBom: true });
-        QuizExporter.triggerDownload(csvContent, `eeclass_quiz_${timestamp}.csv`, 'text/csv;charset=utf-8');
-        showToast('📥 成功匯出 ee-Class 官方標準 CSV (UTF-8 with BOM)！', 'success');
-      } else if (formatType === 'csv_big5') {
-        showToast('⏳ 正在以 Big5 (CP950) 二進位轉碼並執行符號等義修復...', 'info');
-        await QuizExporter.exportBig5Csv(state.questions, globalCat, `eeclass_quiz_${timestamp}_big5.csv`);
-        showToast('📑 成功匯出 Big5 副本 CSV！可直接上傳舊版測驗系統。', 'success');
-      } else if (formatType === 'gift') {
-        const giftContent = QuizExporter.generateGift(state.questions, globalCat);
-        QuizExporter.triggerDownload(giftContent, `eeclass_quiz_${timestamp}.gift`, 'text/plain;charset=utf-8');
-        showToast('🎁 成功匯出 GIFT 格式檔案！', 'success');
-      }
+      const res = await QB.callGeminiParser({
+        apiKey,
+        model,
+        text: rawText,
+        binaryBase64: state.pendingBinaryBase64,
+        mimeType: state.pendingMimeType,
+        fileName: state.pendingFileName,
+        defaultCategory,
+      });
+      state.questions = res.questions;
+      state.lastNormSummary = `由 Gemini AI (${model}) 智慧解析共 ${res.questions.length} 題。${res.notes ? " 備註：" + res.notes : ""}`;
+      banner.className = "alert alert-ok";
+      banner.textContent = state.lastNormSummary;
+      state.activeFilter = "all";
+      state.searchKeyword = "";
+      renderEditor();
+      switchMainTab("editor");
+      showToast(`Gemini AI 解析完成，共 ${res.questions.length} 題`);
     } catch (err) {
-      console.error('Export error:', err);
-      showToast(`匯出失敗: ${err.message}`, 'error');
+      banner.className = "alert alert-error";
+      banner.textContent = err.message;
+    } finally {
+      btn.disabled = false;
+      btn.textContent = origText;
     }
   }
 
-  /**
-   * 打開防呆診斷視窗
-   */
-  function openDiagnosticsModal(validation) {
-    if (!dom.diagModal) return;
-    dom.modalErrCount.innerText = `${validation.errorCount} 項錯誤阻擋`;
-    dom.modalWarnCount.innerText = `${validation.warningCount} 項建議`;
-    dom.modalIssuesList.innerHTML = '';
+  // ===== Tab 2：題目預覽、編輯、篩選與多格式匯出 =====
+  function initEditorControls() {
+    const savedSize = localStorage.getItem(STORAGE_KEYS.fontSize);
+    if (["sm", "md", "lg", "xl"].includes(savedSize)) state.fontSize = savedSize;
+    applyFontSize();
 
-    validation.issues.forEach(issue => {
-      const item = document.createElement('div');
-      item.className = `diag-item diag-${issue.severity}`;
-      item.innerHTML = `
-        <div class="diag-item-content">
-          <div class="diag-item-msg">
-            <span class="diag-severity-tag">${issue.severity === 'error' ? '🚫 錯誤阻擋' : '💡 建議'}</span>
-            ${escapeHtml(issue.message)}
-          </div>
-        </div>
-        <button class="btn btn-secondary btn-sm diag-fix-btn">前往修正</button>
-      `;
-
-      item.querySelector('.diag-fix-btn').addEventListener('click', () => {
-        closeDiagnosticsModal();
-        switchTab('editor');
-        setTimeout(() => {
-          const card = document.querySelector(`.question-card[data-id="${issue.id}"]`);
-          if (card) {
-            card.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            card.style.boxShadow = '0 0 25px rgba(244, 63, 94, 0.8)';
-            setTimeout(() => card.style.boxShadow = '', 2500);
-          }
-        }, 300);
+    document.querySelectorAll(".btn-font-size").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        state.fontSize = btn.dataset.size;
+        localStorage.setItem(STORAGE_KEYS.fontSize, state.fontSize);
+        applyFontSize();
       });
-
-      dom.modalIssuesList.appendChild(item);
     });
 
-    dom.diagModal.style.display = 'flex';
-    dom.diagModal.classList.add('active');
+    document.querySelectorAll(".filter-pill").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        state.activeFilter = btn.dataset.filter;
+        document.querySelectorAll(".filter-pill").forEach((b) => b.classList.toggle("active", b === btn));
+        renderEditor();
+      });
+    });
+
+    $("search-questions").addEventListener("input", (e) => {
+      state.searchKeyword = e.target.value.trim().toLowerCase();
+      renderEditor();
+    });
+
+    $("btn-apply-category").addEventListener("click", () => {
+      const cat = $("default-category").value.trim();
+      state.questions.forEach((q) => (q.category = cat));
+      renderEditor();
+      showToast(cat ? `已將全部題目類別設為「${cat}」` : "已清空全部題目類別");
+    });
+
+    $("btn-add-question").addEventListener("click", () => {
+      state.questions.push(QB.createEmptyQuestion($("default-category").value.trim()));
+      state.activeFilter = "all";
+      renderEditor();
+      const cards = $("questions-list").querySelectorAll(".q-card");
+      if (cards.length) cards[cards.length - 1].scrollIntoView({ behavior: "smooth", block: "center" });
+    });
+
+    $("btn-clear-questions").addEventListener("click", () => {
+      if (state.questions.length === 0) return;
+      state.questions = [];
+      state.lastNormSummary = "";
+      renderEditor();
+      showToast("已清空編輯器中的所有題目");
+    });
+
+    $("btn-export-utf8").addEventListener("click", () => exportQuestions("utf8"));
+    $("btn-export-utf8-bom").addEventListener("click", () => exportQuestions("utf8-bom"));
+    $("btn-export-big5").addEventListener("click", () => exportQuestions("big5"));
+    $("btn-export-gift").addEventListener("click", () => exportQuestions("gift"));
+    $("btn-export-json").addEventListener("click", () => exportQuestions("json"));
+    $("btn-copy-csv").addEventListener("click", () => {
+      copyText(QB.buildCsvUtf8(state.questions), "已複製完整 27 欄 CSV");
+    });
+    $("btn-preview-csv").addEventListener("click", () => {
+      $("csv-preview-text").textContent = QB.buildCsvUtf8(state.questions);
+      $("csv-modal").hidden = false;
+    });
+    $("btn-close-modal").addEventListener("click", () => ($("csv-modal").hidden = true));
+    $("csv-modal").addEventListener("click", (e) => {
+      if (e.target === $("csv-modal")) $("csv-modal").hidden = true;
+    });
+    $("btn-modal-copy").addEventListener("click", () => {
+      copyText($("csv-preview-text").textContent, "已複製完整 CSV");
+    });
+    $("chk-allow-invalid").addEventListener("change", updateExportButtonsState);
   }
 
-  /**
-   * 關閉防呆診斷視窗
-   */
-  function closeDiagnosticsModal() {
-    if (dom.diagModal) {
-      dom.diagModal.classList.remove('active');
-      dom.diagModal.style.display = 'none';
+  function applyFontSize() {
+    const list = $("questions-list");
+    list.classList.remove("q-font-sm", "q-font-md", "q-font-lg", "q-font-xl");
+    list.classList.add(`q-font-${state.fontSize}`);
+    document.querySelectorAll(".btn-font-size").forEach((b) => {
+      b.classList.toggle("active", b.dataset.size === state.fontSize);
+    });
+  }
+
+  function renderEditor() {
+    $("nav-editor-count").textContent = String(state.questions.length);
+    const hasQ = state.questions.length > 0;
+    $("editor-empty").hidden = hasQ;
+    $("editor-workspace").hidden = !hasQ;
+
+    const stage2 = $("stage2-banner");
+    if (hasQ && state.lastNormSummary) {
+      stage2.textContent = `🪄 人機協同第二階段：${state.lastNormSummary} 請快速確認下方卡片，通過防呆驗證即可匯出！`;
+      stage2.hidden = false;
+    } else {
+      stage2.hidden = true;
     }
+
+    if (!hasQ) return;
+
+    const validation = QB.validateAll(state.questions);
+    renderStats(validation);
+    renderQuestionCards(validation);
+    updateExportButtonsState();
   }
 
-  /**
-   * Toast 訊息提示
-   */
-  function showToast(message, type = 'info') {
-    if (!dom.toastContainer) return;
-    const toast = document.createElement('div');
-    toast.className = `toast toast-${type}`;
-    let icon = 'ℹ️';
-    if (type === 'success') icon = '✅';
-    else if (type === 'warning') icon = '⚠️';
-    else if (type === 'error') icon = '❌';
+  function renderStats(validation) {
+    const counts = { "1": 0, "2": 0, "3": 0, "4": 0, "5": 0 };
+    let normCount = 0;
+    state.questions.forEach((q) => {
+      if (counts[q.type] !== undefined) counts[q.type]++;
+      if (q.wasAutoNormalized) normCount++;
+    });
 
-    toast.innerHTML = `
-      <span class="toast-icon">${icon}</span>
-      <span class="toast-text">${escapeHtml(message)}</span>
-    `;
-
-    dom.toastContainer.appendChild(toast);
-    setTimeout(() => {
-      toast.style.animation = 'toastOut 0.3s forwards ease-in';
-      setTimeout(() => toast.remove(), 300);
-    }, 4000);
+    const total = state.questions.length;
+    const pass = total - validation.invalidCount;
+    const pills = [
+      `<span class="stat-pill">共 ${total} 題</span>`,
+      `<span class="stat-pill ok">✓ 通過驗證 ${pass}</span>`,
+    ];
+    if (validation.invalidCount > 0) pills.push(`<span class="stat-pill err">✕ 待修正錯誤 ${validation.invalidCount}</span>`);
+    if (validation.warnCount > 0) pills.push(`<span class="stat-pill warn">⚠ 提醒 ${validation.warnCount}</span>`);
+    if (normCount > 0) pills.push(`<span class="stat-pill purple">🪄 智慧重構/AI ${normCount}</span>`);
+    for (const [k, label] of Object.entries(QB.TYPE_LABELS)) {
+      if (counts[k] > 0) pills.push(`<span class="stat-pill">${label} ${counts[k]}</span>`);
+    }
+    $("stats-bar").innerHTML = pills.join("");
   }
 
-  /**
-   * 本地儲存持久化
-   */
-  function saveToLocalStorage() {
-    try {
-      localStorage.setItem('eeclass_quiz_questions_pro', JSON.stringify(state.questions));
-      if (dom.globalCategoryInput) {
-        localStorage.setItem('eeclass_global_category', dom.globalCategoryInput.value.trim());
+  function matchesFilter(q, v) {
+    const f = state.activeFilter;
+    if (f === "1" || f === "2" || f === "3" || f === "4" || f === "5") {
+      if (q.type !== f) return false;
+    } else if (f === "normalized") {
+      if (!q.wasAutoNormalized) return false;
+    } else if (f === "issues") {
+      if (v.errors.length === 0 && v.warnings.length === 0) return false;
+    }
+
+    if (state.searchKeyword) {
+      const hay = [q.category, q.question, q.answer, q.explanation, ...(q.options || [])]
+        .join(" ")
+        .toLowerCase();
+      if (!hay.includes(state.searchKeyword)) return false;
+    }
+    return true;
+  }
+
+  function renderQuestionCards(validation) {
+    const list = $("questions-list");
+    list.innerHTML = "";
+    let shown = 0;
+
+    state.questions.forEach((q, idx) => {
+      const v = validation.perQuestion[idx];
+      if (!matchesFilter(q, v)) return;
+      shown++;
+
+      const card = document.createElement("article");
+      card.className = "q-card" + (v.errors.length ? " has-error" : "") + (v.warnings.length ? " has-warn" : "");
+
+      const statusBadge = v.errors.length
+        ? `<span class="badge badge-err">✕ ${v.errors.length} 項錯誤</span>`
+        : v.warnings.length
+        ? `<span class="badge badge-warn">⚠ ${v.warnings.length} 項提醒</span>`
+        : `<span class="badge badge-ok">✓ 格式正確</span>`;
+
+      const normBadge = q.wasAutoNormalized ? `<span class="badge badge-purple" title="${escapeHtml(q.normalizeNote)}">🪄 智慧調整</span>` : "";
+
+      let issuesHtml = "";
+      if (v.errors.length || v.warnings.length) {
+        issuesHtml =
+          `<div class="q-issues">` +
+          v.errors.map((m) => `<div class="q-issue err">✕ ${escapeHtml(m)}</div>`).join("") +
+          v.warnings.map((m) => `<div class="q-issue warn">⚠ ${escapeHtml(m)}</div>`).join("") +
+          `</div>`;
       }
-    } catch (e) {
-      console.warn('LocalStorage save failed:', e);
-    }
-  }
 
-  function loadFromLocalStorage() {
-    try {
-      const stored = localStorage.getItem('eeclass_quiz_questions_pro');
-      if (stored) {
-        const parsed = JSON.parse(stored);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          state.questions = parsed;
-          renderQuestionsList();
+      let answerBlockHtml = "";
+      if (q.type === "1") {
+        answerBlockHtml = `
+          <div>
+            <label class="field-label">是非題答案</label>
+            <div class="tf-group">
+              <label class="tf-btn"><input type="radio" name="tf-${idx}" value="1" ${q.answer === "1" ? "checked" : ""}> (1) 是 / 正確</label>
+              <label class="tf-btn"><input type="radio" name="tf-${idx}" value="2" ${q.answer === "2" ? "checked" : ""}> (2) 否 / 錯誤</label>
+            </div>
+          </div>`;
+      } else if (q.type === "2" || q.type === "3") {
+        const picks = new Set((q.answer || "").split(",").map((s) => s.trim()).filter(Boolean));
+        const inputType = q.type === "2" ? "radio" : "checkbox";
+        if (q.options.length === 0) q.options = ["", "", "", ""];
+        const rowsHtml = q.options
+          .map((opt, oi) => {
+            const num = String(oi + 1);
+            const letter = String.fromCharCode(65 + oi);
+            return `
+            <div class="opt-row">
+              <input type="${inputType}" name="ans-${idx}" class="opt-pick" data-oi="${oi}" ${picks.has(num) ? "checked" : ""} title="設為正確答案">
+              <span class="opt-letter">${letter}</span>
+              <input type="text" class="opt-text" data-oi="${oi}" value="${escapeHtml(opt)}" placeholder="選項 ${num} 文字（不含 (A) 前綴）">
+              <button type="button" class="btn btn-sm btn-danger-ghost opt-del" data-oi="${oi}" title="刪除此選項">✕</button>
+            </div>`;
+          })
+          .join("");
+
+        answerBlockHtml = `
+          <div>
+            <div class="card-header" style="margin-bottom:0.4rem">
+              <label class="field-label" style="margin:0">選項與答案（勾選左側即為正解；答案欄：<code>${escapeHtml(q.answer || "未選")}</code>）</label>
+              <button type="button" class="btn btn-sm opt-add">＋ 新增選項</button>
+            </div>
+            <div class="options-editor">${rowsHtml}</div>
+          </div>`;
+      } else if (q.type === "4") {
+        answerBlockHtml = `
+          <div class="grid-2">
+            <div>
+              <label class="field-label">填充設定 1：英文大小寫（第 8 欄）</label>
+              <select class="f-case">
+                <option value="1" ${q.fillCaseFlag === "1" ? "selected" : ""}>1 — 不分英文大小寫</option>
+                <option value="2" ${q.fillCaseFlag === "2" ? "selected" : ""}>2 — 區分英文大小寫</option>
+              </select>
+            </div>
+            <div>
+              <label class="field-label">填充設定 2：作答順序（第 9 欄）</label>
+              <select class="f-order">
+                <option value="1" ${q.fillOrderFlag === "1" ? "selected" : ""}>1 — 不考慮順序</option>
+                <option value="2" ${q.fillOrderFlag === "2" ? "selected" : ""}>2 — 需考慮順序</option>
+              </select>
+            </div>
+          </div>`;
+      } else if (q.type === "5") {
+        answerBlockHtml = `
+          <div>
+            <label class="field-label">問答題參考答案（支援多行）</label>
+            <textarea class="f-essay-ans" rows="3" placeholder="輸入參考答案...">${escapeHtml(q.answer)}</textarea>
+          </div>`;
+      }
+
+      const fillHelperBtn =
+        q.type === "4"
+          ? `<button type="button" class="btn btn-sm btn-purple btn-wrap-blank" title="反白上方題目中的答案文字後點此按鈕，自動加上 [* *]">✨ 將選取字設為 [*填空*]</button>`
+          : "";
+
+      card.innerHTML = `
+        <div class="q-card-head">
+          <div class="q-head-left">
+            <span class="q-num">第 ${idx + 1} 題</span>
+            <span class="badge">${escapeHtml(QB.TYPE_LABELS[q.type] || "未知")}</span>
+            ${statusBadge}
+            ${normBadge}
+          </div>
+          <div class="btn-row">
+            <button type="button" class="btn btn-sm q-up" ${idx === 0 ? "disabled" : ""} title="上移">↑</button>
+            <button type="button" class="btn btn-sm q-down" ${idx === state.questions.length - 1 ? "disabled" : ""} title="下移">↓</button>
+            <button type="button" class="btn btn-sm btn-danger-ghost q-del">刪除</button>
+          </div>
+        </div>
+        <div class="q-card-body">
+          ${issuesHtml}
+          <div class="q-meta-row">
+            <div>
+              <label class="field-label">類別（第 2 欄，可空）</label>
+              <input type="text" class="f-cat" value="${escapeHtml(q.category)}" placeholder="例如：資訊安全">
+            </div>
+            <div>
+              <label class="field-label">題型（第 3 欄）</label>
+              <select class="f-type">
+                <option value="1" ${q.type === "1" ? "selected" : ""}>1 — 是非題</option>
+                <option value="2" ${q.type === "2" ? "selected" : ""}>2 — 單選題</option>
+                <option value="3" ${q.type === "3" ? "selected" : ""}>3 — 複選題</option>
+                <option value="4" ${q.type === "4" ? "selected" : ""}>4 — 填充題</option>
+                <option value="5" ${q.type === "5" ? "selected" : ""}>5 — 問答題</option>
+              </select>
+            </div>
+            <div>
+              <label class="field-label">難易度（第 7 欄）</label>
+              <select class="f-diff">
+                <option value="1" ${q.difficulty === "1" ? "selected" : ""}>1 — 容易</option>
+                <option value="2" ${q.difficulty === "2" ? "selected" : ""}>2 — 適中</option>
+                <option value="3" ${q.difficulty === "3" ? "selected" : ""}>3 — 困難</option>
+              </select>
+            </div>
+          </div>
+          <div>
+            <div class="card-header" style="margin-bottom:0.3rem">
+              <label class="field-label" style="margin:0">題目（第 4 欄）${q.type === "4" ? " — 以 [*答案*] 標記填空處" : ""}</label>
+              ${fillHelperBtn}
+            </div>
+            <textarea class="f-question" rows="2">${escapeHtml(q.question)}</textarea>
+          </div>
+          ${answerBlockHtml}
+          <div>
+            <label class="field-label">解說（第 6 欄，可空）</label>
+            <input type="text" class="f-exp" value="${escapeHtml(q.explanation)}" placeholder="選填解說文字">
+          </div>
+        </div>
+      `;
+
+      // 事件綁定
+      card.querySelector(".f-cat").addEventListener("input", (e) => (q.category = e.target.value));
+      card.querySelector(".f-type").addEventListener("change", (e) => {
+        q.type = e.target.value;
+        if ((q.type === "2" || q.type === "3") && q.options.length === 0) q.options = ["", "", "", ""];
+        if (q.type === "4") q.answer = "";
+        renderEditor();
+      });
+      card.querySelector(".f-diff").addEventListener("change", (e) => {
+        q.difficulty = e.target.value;
+        q.difficultyEstimated = false;
+        renderEditor();
+      });
+      const qTa = card.querySelector(".f-question");
+      qTa.addEventListener("change", (e) => {
+        q.question = e.target.value;
+        renderEditor();
+      });
+      card.querySelector(".f-exp").addEventListener("input", (e) => (q.explanation = e.target.value));
+
+      const wrapBtn = card.querySelector(".btn-wrap-blank");
+      if (wrapBtn) {
+        wrapBtn.addEventListener("click", () => {
+          const start = qTa.selectionStart;
+          const end = qTa.selectionEnd;
+          if (end > start) {
+            const sel = qTa.value.slice(start, end);
+            q.question = qTa.value.slice(0, start) + `[*${sel}*]` + qTa.value.slice(end);
+          } else {
+            q.question = qTa.value + "[*答案*]";
+          }
+          renderEditor();
+        });
+      }
+
+      card.querySelectorAll(`input[name="tf-${idx}"]`).forEach((r) => {
+        r.addEventListener("change", () => {
+          q.answer = r.value;
+          renderEditor();
+        });
+      });
+      card.querySelectorAll(".opt-pick").forEach((inp) => {
+        inp.addEventListener("change", () => {
+          const picked = [];
+          card.querySelectorAll(".opt-pick").forEach((el) => {
+            if (el.checked) picked.push(String(parseInt(el.dataset.oi, 10) + 1));
+          });
+          q.answer = picked.join(",");
+          renderEditor();
+        });
+      });
+      card.querySelectorAll(".opt-text").forEach((inp) => {
+        inp.addEventListener("change", () => {
+          q.options[parseInt(inp.dataset.oi, 10)] = inp.value;
+          renderEditor();
+        });
+      });
+      card.querySelectorAll(".opt-del").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          const oi = parseInt(btn.dataset.oi, 10);
+          q.options.splice(oi, 1);
+          const picks = (q.answer || "").split(",").map((s) => parseInt(s, 10)).filter((n) => !isNaN(n));
+          q.answer = picks.filter((n) => n !== oi + 1).map((n) => (n > oi + 1 ? n - 1 : n)).join(",");
+          renderEditor();
+        });
+      });
+      const addOptBtn = card.querySelector(".opt-add");
+      if (addOptBtn) {
+        addOptBtn.addEventListener("click", () => {
+          if (q.options.length >= 20) return showToast("最多支援 20 個選項");
+          q.options.push("");
+          renderEditor();
+        });
+      }
+
+      const fCase = card.querySelector(".f-case");
+      if (fCase) fCase.addEventListener("change", (e) => { q.fillCaseFlag = e.target.value; renderEditor(); });
+      const fOrder = card.querySelector(".f-order");
+      if (fOrder) fOrder.addEventListener("change", (e) => { q.fillOrderFlag = e.target.value; renderEditor(); });
+      const fEssay = card.querySelector(".f-essay-ans");
+      if (fEssay) fEssay.addEventListener("change", (e) => { q.answer = e.target.value; renderEditor(); });
+
+      card.querySelector(".q-up").addEventListener("click", () => {
+        if (idx > 0) {
+          [state.questions[idx - 1], state.questions[idx]] = [state.questions[idx], state.questions[idx - 1]];
+          renderEditor();
         }
-      }
-      const storedCat = localStorage.getItem('eeclass_global_category');
-      if (storedCat && dom.globalCategoryInput) {
-        dom.globalCategoryInput.value = storedCat;
-        state.globalCategory = storedCat;
-      }
-    } catch (e) {
-      console.warn('LocalStorage load failed:', e);
+      });
+      card.querySelector(".q-down").addEventListener("click", () => {
+        if (idx < state.questions.length - 1) {
+          [state.questions[idx + 1], state.questions[idx]] = [state.questions[idx], state.questions[idx + 1]];
+          renderEditor();
+        }
+      });
+      card.querySelector(".q-del").addEventListener("click", () => {
+        state.questions.splice(idx, 1);
+        renderEditor();
+      });
+
+      list.appendChild(card);
+    });
+
+    if (shown === 0) {
+      list.innerHTML = `<div class="alert">目前篩選或搜尋條件下沒有符合的題目，請切換回「全部題目」或清除關鍵字。</div>`;
     }
   }
 
-  function escapeHtml(str) {
-    if (!str) return '';
-    return String(str)
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;')
-      .replace(/'/g, '&#039;');
+  function updateExportButtonsState() {
+    const validation = QB.validateAll(state.questions);
+    const allowInvalid = $("chk-allow-invalid").checked;
+    const canExport = state.questions.length > 0 && (validation.invalidCount === 0 || allowInvalid);
+
+    $("btn-export-utf8").disabled = !canExport;
+    $("btn-export-utf8-bom").disabled = !canExport;
+    $("btn-export-big5").disabled = !canExport;
+    $("btn-export-gift").disabled = !canExport;
+    $("btn-export-json").disabled = state.questions.length === 0;
+    $("btn-copy-csv").disabled = !canExport;
+    $("btn-preview-csv").disabled = state.questions.length === 0;
+
+    const warnBox = $("big5-warning-box");
+    if (state.questions.length > 0) {
+      const csv = QB.buildCsvUtf8(state.questions);
+      const b5 = QB.encodeCp950(csv);
+      if (b5.unmappable.length > 0) {
+        warnBox.className = "alert alert-warn";
+        warnBox.innerHTML =
+          `<strong>⚠ Big5 (CP950) 字元提醒：</strong>以下字元不在 Big5 字集內，匯出 Big5 版時會變為 <code>?</code>，建議改用 UTF-8 版或先改寫字元：<br><code>${escapeHtml(b5.unmappable.join("、"))}</code>`;
+        warnBox.hidden = false;
+      } else if (b5.remappedCount > 0) {
+        warnBox.className = "alert alert-ok";
+        warnBox.textContent = `✓ Big5 (CP950) 相容檢查通過（已自動將 ${b5.remappedCount} 處 ≥/≤/・ 轉為 Big5 等義符號）。`;
+        warnBox.hidden = false;
+      } else {
+        warnBox.hidden = true;
+      }
+    } else {
+      warnBox.hidden = true;
+    }
   }
 
-  init();
-});
+  function exportQuestions(format) {
+    const stem = baseFileName(state.sourceFileName);
+    if (format === "utf8") {
+      const csv = QB.buildCsvUtf8(state.questions, { withBom: false });
+      const bytes = new TextEncoder().encode(csv);
+      triggerDownload(new Blob([bytes], { type: "text/csv;charset=utf-8" }), `${stem}.csv`);
+      showToast(`已下載 ${stem}.csv（ee-Class UTF-8 無 BOM，${bytes.length} bytes）`);
+    } else if (format === "utf8-bom") {
+      const csv = QB.buildCsvUtf8(state.questions, { withBom: true });
+      const bytes = new TextEncoder().encode(csv);
+      triggerDownload(new Blob([bytes], { type: "text/csv;charset=utf-8" }), `${stem}_UTF8_BOM.csv`);
+      showToast(`已下載 ${stem}_UTF8_BOM.csv（Excel 友善 UTF-8 BOM）`);
+    } else if (format === "big5") {
+      const csv = QB.buildCsvUtf8(state.questions, { withBom: false });
+      const res = QB.encodeCp950(csv);
+      triggerDownload(new Blob([res.bytes], { type: "text/csv;charset=big5" }), `${stem}_big5.csv`);
+      showToast(
+        res.unmappable.length > 0
+          ? `已下載 ${stem}_big5.csv（注意：有 ${res.unmappable.length} 種字元轉成 ?）`
+          : `已下載 ${stem}_big5.csv（Big5/CP950 無損，${res.bytes.length} bytes）`
+      );
+    } else if (format === "gift") {
+      const gift = QB.buildGift(state.questions, $("default-category").value.trim());
+      triggerDownload(new Blob([gift], { type: "text/plain;charset=utf-8" }), `${stem}.gift`);
+      showToast(`已下載 ${stem}.gift（ee-Class / Moodle GIFT 格式）`);
+    } else if (format === "json") {
+      const json = QB.buildJsonBackup(state.questions, $("default-category").value.trim());
+      triggerDownload(new Blob([json], { type: "application/json;charset=utf-8" }), `${stem}_backup.json`);
+      showToast(`已備份 ${stem}_backup.json（下次直接拖入即可還原續編）`);
+    }
+  }
+
+  // ===== Tab 3：CSV 驗收與 Big5 / GIFT 轉碼 =====
+  function initValidator() {
+    const dz = $("csv-drop-zone");
+    const fi = $("csv-file-input");
+
+    dz.addEventListener("click", () => fi.click());
+    dz.addEventListener("dragover", (e) => { e.preventDefault(); dz.classList.add("dragover"); });
+    dz.addEventListener("dragleave", () => dz.classList.remove("dragover"));
+    dz.addEventListener("drop", (e) => {
+      e.preventDefault();
+      dz.classList.remove("dragover");
+      if (e.dataTransfer.files && e.dataTransfer.files[0]) loadCsvFileForValidation(e.dataTransfer.files[0]);
+    });
+    fi.addEventListener("change", () => {
+      if (fi.files && fi.files[0]) loadCsvFileForValidation(fi.files[0]);
+      fi.value = "";
+    });
+
+    $("btn-validate-csv").addEventListener("click", runCsvValidation);
+    $("btn-validator-clear").addEventListener("click", () => {
+      $("csv-paste-input").value = "";
+      $("validator-result").hidden = true;
+      state.validatorQuestions = [];
+    });
+
+    $("btn-validator-load-editor").addEventListener("click", () => {
+      if (state.validatorQuestions.length === 0) return;
+      state.questions = state.validatorQuestions.map((q) => Object.assign({}, q, { options: [...q.options] }));
+      state.sourceFileName = state.validatorFileName;
+      state.lastNormSummary = `由「CSV 驗收器」載入 ${state.questions.length} 題進行修正。`;
+      renderEditor();
+      switchMainTab("editor");
+      showToast(`已載入 ${state.questions.length} 題到編輯器`);
+    });
+
+    $("btn-validator-export-utf8").addEventListener("click", () => {
+      const csv = QB.buildCsvUtf8(state.validatorQuestions, { withBom: false });
+      const bytes = new TextEncoder().encode(csv);
+      triggerDownload(new Blob([bytes], { type: "text/csv;charset=utf-8" }), `${state.validatorFileName}_fixed.csv`);
+      showToast("已下載重整後的 UTF-8（無 BOM）CSV");
+    });
+
+    $("btn-validator-export-big5").addEventListener("click", () => {
+      const csv = QB.buildCsvUtf8(state.validatorQuestions, { withBom: false });
+      const res = QB.encodeCp950(csv);
+      triggerDownload(new Blob([res.bytes], { type: "text/csv;charset=big5" }), `${state.validatorFileName}_big5.csv`);
+      showToast(res.unmappable.length ? `已下載 Big5 版（${res.unmappable.length} 種字元轉成 ?）` : "已下載 Big5 (CP950) 無損版 CSV");
+    });
+
+    $("btn-validator-export-gift").addEventListener("click", () => {
+      const gift = QB.buildGift(state.validatorQuestions, "");
+      triggerDownload(new Blob([gift], { type: "text/plain;charset=utf-8" }), `${state.validatorFileName}.gift`);
+      showToast("已下載 GIFT 格式 (.gift)");
+    });
+  }
+
+  async function loadCsvFileForValidation(file) {
+    state.validatorFileName = baseFileName(file.name);
+    const buf = await file.arrayBuffer();
+    const { text, encoding } = QB.decodeFileBytesSmart(buf);
+    $("csv-paste-input").value = text;
+    showToast(`已載入 ${file.name}（偵測編碼：${encoding}）`);
+    runCsvValidation();
+  }
+
+  function runCsvValidation() {
+    const raw = $("csv-paste-input").value;
+    if (!raw.trim()) return showToast("請先上傳或貼上 CSV 內容");
+
+    const res = QB.inspectQbCsv(raw);
+    state.validatorQuestions = res.questions;
+    $("validator-result").hidden = false;
+
+    const sumEl = $("validator-summary");
+    if (res.ok) {
+      sumEl.className = "alert alert-ok";
+      sumEl.innerHTML = `<strong>✓ 驗收通過！</strong>表頭為 <code>version: 4</code>，全部 ${res.questions.length} 題皆符合 ee-Class 27 欄格式規範，可直接匯入或轉存 Big5 / GIFT。`;
+    } else {
+      sumEl.className = "alert alert-error";
+      sumEl.innerHTML = `<strong>✕ 發現格式或題目問題：</strong>結構錯誤 ${res.structuralErrors.length} 項、題目錯誤 ${res.validation.invalidCount} 題。建議點下方「載入到編輯器修正」。`;
+    }
+
+    const issues = [];
+    res.structuralErrors.forEach((m) => issues.push(`<div class="q-issue err">✕ [檔案結構] ${escapeHtml(m)}</div>`));
+    res.structuralWarnings.forEach((m) => issues.push(`<div class="q-issue warn">⚠ [檔案結構] ${escapeHtml(m)}</div>`));
+    res.validation.perQuestion.forEach((v, i) => {
+      v.errors.forEach((m) => issues.push(`<div class="q-issue err">✕ [第 ${i + 1} 題] ${escapeHtml(m)}</div>`));
+      v.warnings.forEach((m) => issues.push(`<div class="q-issue warn">⚠ [第 ${i + 1} 題] ${escapeHtml(m)}</div>`));
+    });
+
+    if (res.questions.length > 0) {
+      const rebuilt = QB.buildCsvUtf8(res.questions, { withBom: false });
+      const b5 = QB.encodeCp950(rebuilt);
+      if (b5.unmappable.length > 0) {
+        issues.push(`<div class="q-issue warn">⚠ [Big5 檢查] 以下字元無法轉成 Big5（會變 ?）：<code>${escapeHtml(b5.unmappable.join("、"))}</code></div>`);
+      } else {
+        issues.push(`<div class="q-issue ok">✓ [Big5 檢查] 全部字元皆可無損轉為 Big5 (CP950)。</div>`);
+      }
+    }
+
+    $("validator-issues").innerHTML = issues.join("");
+    const hasQ = res.questions.length > 0;
+    $("btn-validator-load-editor").disabled = !hasQ;
+    $("btn-validator-export-utf8").disabled = !hasQ;
+    $("btn-validator-export-big5").disabled = !hasQ;
+    $("btn-validator-export-gift").disabled = !hasQ;
+  }
+
+  // ===== Tab 4：講義 / PDF 轉 5 大題型出題助手 =====
+  function getLectureCounts() {
+    const num = (id) => Math.max(0, Math.min(50, parseInt($(id).value, 10) || 0));
+    return {
+      tf: num("lec-cnt-tf"),
+      single: num("lec-cnt-single"),
+      multi: num("lec-cnt-multi"),
+      fill: num("lec-cnt-fill"),
+      essay: num("lec-cnt-essay"),
+    };
+  }
+
+  function buildLecturePromptText(includeFullLecture) {
+    const cat = $("lecture-category").value.trim();
+    const c = getLectureCounts();
+    const parts = [];
+    if (c.tf > 0) parts.push(`- 一、是非題 ${c.tf} 題（答案寫「答案：O」或「答案：X」）`);
+    if (c.single > 0) parts.push(`- 二、單選題 ${c.single} 題（每題 4 個選項 (A)(B)(C)(D)，標註「答案：A」）`);
+    if (c.multi > 0) parts.push(`- 三、複選題 ${c.multi} 題（每題 4 個選項 (A)(B)(C)(D)，標註「答案：(A)(C)」）`);
+    if (c.fill > 0) parts.push(`- 四、填充題 ${c.fill} 題（題幹空格處直接寫為 [*標準答案*]，例：地球約有[*70%*]為海洋）`);
+    if (c.essay > 0) parts.push(`- 五、問答題 ${c.essay} 題（以「參考答案：」列出評分要點）`);
+
+    const header = [
+      "請將以下【課程講義 / 教材內容】轉化為 ee-Class 題庫標準格式：",
+      cat ? `類別：${cat}` : "1. 頂部請依講義主題標註「類別：章節或主題名稱」。",
+      "",
+      "指定題型與數量：",
+      ...(parts.length ? parts : ["- 請依講義重點產出是非、單選、複選、填充與問答題"]),
+      "",
+      "每題皆須附上「解說：」與「難易度：容易/適中/困難」，確保命題嚴格依據講義內容。",
+      "",
+      "【課程講義內容】：",
+    ].join("\n");
+
+    const wantAttach = $("lec-include-text").checked;
+    if (state.lectureIsScanned) {
+      return header + `\n（已選取掃描型 PDF：${state.lectureFileName}，請直接將此 PDF 當作附件上傳給 AI，或點下方「✨ 直接用 Gemini AI 依此講義出題」）`;
+    }
+    if (!state.lectureText) {
+      return header + "\n（請先在上方拖入 PDF / Word / 文字講義，或在此自行貼上講義內容）";
+    }
+    if (!wantAttach) {
+      return header + `\n（已載入講義：${state.lectureFileName}，共 ${state.lectureText.length} 字；未勾選附帶全文，請自行將 PDF 當作附件上傳）`;
+    }
+    if (includeFullLecture) {
+      return header + "\n" + state.lectureText;
+    }
+    // 預覽區精簡顯示前 320 字避免畫面過長，實際複製時會附上完整全文
+    const previewBody =
+      state.lectureText.length > 320
+        ? state.lectureText.slice(0, 320) + `\n...（已載入完整講義 ${state.lectureText.length} 字，點擊「📋 一鍵複製完整出題提示詞」時會完整附帶全文）`
+        : state.lectureText;
+    return header + "\n" + previewBody;
+  }
+
+  function refreshLecturePromptPreview() {
+    $("prompt-tpl-1").textContent = buildLecturePromptText(false);
+  }
+
+  function initLectureGenerator() {
+    const dz = $("lecture-drop-zone");
+    const fi = $("lecture-file-input");
+
+    dz.addEventListener("click", () => fi.click());
+    dz.addEventListener("dragover", (e) => { e.preventDefault(); dz.classList.add("dragover"); });
+    dz.addEventListener("dragleave", () => dz.classList.remove("dragover"));
+    dz.addEventListener("drop", (e) => {
+      e.preventDefault();
+      dz.classList.remove("dragover");
+      if (e.dataTransfer.files && e.dataTransfer.files[0]) handleLectureFile(e.dataTransfer.files[0]);
+    });
+    fi.addEventListener("change", () => {
+      if (fi.files && fi.files[0]) handleLectureFile(fi.files[0]);
+      fi.value = "";
+    });
+
+    ["lecture-category", "lec-cnt-tf", "lec-cnt-single", "lec-cnt-multi", "lec-cnt-fill", "lec-cnt-essay", "lec-include-text"].forEach((id) => {
+      $(id).addEventListener("input", refreshLecturePromptPreview);
+      $(id).addEventListener("change", refreshLecturePromptPreview);
+    });
+
+    $("btn-lecture-clear").addEventListener("click", () => {
+      state.lectureText = "";
+      state.lectureFileName = "";
+      state.lecturePdfBase64 = null;
+      state.lectureMimeType = "";
+      state.lectureIsScanned = false;
+      $("lecture-file-status").hidden = true;
+      $("lecture-gen-banner").hidden = true;
+      refreshLecturePromptPreview();
+      showToast("已清空匯入的講義");
+    });
+
+    $("btn-copy-lecture-prompt").addEventListener("click", () => {
+      const fullPrompt = buildLecturePromptText(true);
+      copyText(fullPrompt, state.lectureText && $("lec-include-text").checked ? `已複製完整出題提示詞（含講義 ${state.lectureText.length} 字）` : "已複製出題提示詞！");
+    });
+
+    $("btn-ai-gen-from-lecture").addEventListener("click", runAiGenerateFromLecture);
+    refreshLecturePromptPreview();
+  }
+
+  async function handleLectureFile(file) {
+    const name = file.name || "lecture";
+    const ext = name.toLowerCase().split(".").pop();
+    const statusEl = $("lecture-file-status");
+    statusEl.hidden = false;
+
+    state.lectureText = "";
+    state.lectureFileName = name;
+    state.lecturePdfBase64 = null;
+    state.lectureMimeType = "";
+    state.lectureIsScanned = false;
+
+    if (ext === "doc") {
+      statusEl.className = "alert alert-error";
+      statusEl.textContent = "不支援舊版 Word (.doc)，請先另存為 .pdf 或 .docx 再匯入。";
+      refreshLecturePromptPreview();
+      return;
+    }
+
+    if (ext === "pdf") {
+      try {
+        statusEl.className = "alert";
+        statusEl.textContent = `⏳ 正在離線抽取 PDF 講義文字：${name}...`;
+        const buf = await file.arrayBuffer();
+        state.lecturePdfBase64 = arrayBufferToBase64(buf);
+        state.lectureMimeType = "application/pdf";
+
+        const pdfRes = await QB.extractPdfText(buf.slice(0));
+        if (!pdfRes.isLikelyScanned) {
+          state.lectureText = pdfRes.text;
+          state.lectureIsScanned = false;
+          if (!$("lecture-category").value.trim()) {
+            $("lecture-category").value = baseFileName(name);
+          }
+          statusEl.className = "alert alert-ok";
+          statusEl.textContent = `✓ 已離線抽取 PDF 講義：${name}（共 ${pdfRes.pageCount} 頁、${pdfRes.text.length} 字）。可直接點「📋 一鍵複製完整出題提示詞」貼給網頁版 AI，或點「✨ 直接用 Gemini AI 依此講義出題」！`;
+        } else {
+          state.lectureIsScanned = true;
+          if (!$("lecture-category").value.trim()) {
+            $("lecture-category").value = baseFileName(name);
+          }
+          statusEl.className = "alert alert-warn";
+          statusEl.textContent = `偵測到「${name}」（共 ${pdfRes.pageCount} 頁）為掃描圖片型 PDF（無內嵌文字層）。建議點「✨ 直接用 Gemini AI 依此講義出題」（直接讀取原檔圖文），或複製下方提示詞並將 PDF 當附件上傳給網頁版 AI。`;
+        }
+      } catch (err) {
+        statusEl.className = "alert alert-error";
+        statusEl.textContent = `讀取 PDF 講義失敗：${err.message}`;
+      }
+      refreshLecturePromptPreview();
+      return;
+    }
+
+    if (ext === "docx") {
+      try {
+        const buf = await file.arrayBuffer();
+        const text = await QB.extractDocxText(buf);
+        state.lectureText = text;
+        if (!$("lecture-category").value.trim()) $("lecture-category").value = baseFileName(name);
+        statusEl.className = "alert alert-ok";
+        statusEl.textContent = `✓ 已離線抽取 Word 講義：${name}（共 ${text.length} 字）。`;
+      } catch (err) {
+        statusEl.className = "alert alert-error";
+        statusEl.textContent = `讀取 Word 講義失敗：${err.message}`;
+      }
+      refreshLecturePromptPreview();
+      return;
+    }
+
+    if (["txt", "md"].includes(ext)) {
+      const buf = await file.arrayBuffer();
+      const { text, encoding } = QB.decodeFileBytesSmart(buf);
+      state.lectureText = text;
+      if (!$("lecture-category").value.trim()) $("lecture-category").value = baseFileName(name);
+      statusEl.className = "alert alert-ok";
+      statusEl.textContent = `✓ 已讀取文字講義：${name}（編碼：${encoding}，共 ${text.length} 字）。`;
+      refreshLecturePromptPreview();
+      return;
+    }
+
+    statusEl.className = "alert alert-warn";
+    statusEl.textContent = `不支援的講義格式 (.${ext})，請上傳 .pdf、.docx、.txt 或 .md。`;
+    refreshLecturePromptPreview();
+  }
+
+  async function runAiGenerateFromLecture() {
+    const banner = $("lecture-gen-banner");
+    if (!state.lectureText && !state.lecturePdfBase64) {
+      banner.className = "alert alert-warn";
+      banner.textContent = "請先在上方拖入 PDF / Word / 文字講義檔案。";
+      banner.hidden = false;
+      return;
+    }
+
+    const apiKey = $("gemini-api-key").value.trim();
+    const modelSel = $("gemini-model").value;
+    const model = modelSel === "__custom__" ? $("gemini-custom-model").value.trim() : modelSel;
+    const category = $("lecture-category").value.trim();
+    const counts = getLectureCounts();
+
+    const btn = $("btn-ai-gen-from-lecture");
+    const origText = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = "⏳ Gemini AI 依講義命題中...";
+    banner.className = "alert alert-purple";
+    banner.textContent = `正在呼叫 Gemini (${model}) 依據「${state.lectureFileName}」出題，請稍候...`;
+    banner.hidden = false;
+
+    try {
+      const res = await QB.callGeminiLectureGenerator({
+        apiKey,
+        model,
+        lectureText: state.lectureText,
+        pdfBase64: state.lecturePdfBase64,
+        mimeType: state.lectureMimeType,
+        fileName: state.lectureFileName,
+        category,
+        counts,
+      });
+      state.questions = res.questions;
+      state.sourceFileName = baseFileName(state.lectureFileName || "lecture_quiz");
+      if (category) $("default-category").value = category;
+      state.lastNormSummary = `由 Gemini AI 依據講義「${state.lectureFileName}」自動產出 ${res.questions.length} 題（5 大題型）。${res.notes ? " " + res.notes : ""}`;
+      banner.className = "alert alert-ok";
+      banner.textContent = state.lastNormSummary;
+      state.activeFilter = "all";
+      state.searchKeyword = "";
+      renderEditor();
+      switchMainTab("editor");
+      showToast(`已依講義產出 ${res.questions.length} 題，進入編輯器校對！`);
+    } catch (err) {
+      banner.className = "alert alert-error";
+      banner.textContent = err.message;
+    } finally {
+      btn.disabled = false;
+      btn.textContent = origText;
+    }
+  }
+
+  // ===== Tab 4 & 5：提示詞助手、教學與安裝進度 =====
+  function initPromptsAndGuide() {
+    document.querySelectorAll(".subtab").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const target = btn.dataset.guideTab;
+        document.querySelectorAll(".subtab").forEach((b) => {
+          b.setAttribute("aria-selected", b === btn ? "true" : "false");
+        });
+        document.querySelectorAll(".guide-subpanel").forEach((p) => {
+          p.hidden = p.id !== `guide-${target}`;
+        });
+      });
+    });
+
+    let saved = {};
+    try { saved = JSON.parse(localStorage.getItem(STORAGE_KEYS.checklist) || "{}"); } catch (_) {}
+    const checks = Array.from(document.querySelectorAll(".guide-check"));
+    checks.forEach((chk) => {
+      if (saved[chk.dataset.step]) chk.checked = true;
+      chk.addEventListener("change", () => {
+        saved[chk.dataset.step] = chk.checked;
+        localStorage.setItem(STORAGE_KEYS.checklist, JSON.stringify(saved));
+        updateChecklistProgress(checks);
+      });
+    });
+    updateChecklistProgress(checks);
+
+    $("btn-reset-checklist").addEventListener("click", () => {
+      checks.forEach((c) => (c.checked = false));
+      saved = {};
+      localStorage.removeItem(STORAGE_KEYS.checklist);
+      updateChecklistProgress(checks);
+      showToast("已重設安裝進度");
+    });
+
+    function updatePrompt() {
+      const cat = $("prompt-category").value.trim();
+      const byChapter = $("prompt-by-chapter").checked;
+      let text;
+      if (byChapter) text = "請把附件轉成題庫 CSV，類別用各章節標題";
+      else if (cat) text = `請把附件轉成題庫 CSV，類別：${cat}`;
+      else text = "請把附件轉成題庫 CSV";
+      $("prompt-output").textContent = text;
+    }
+
+    $("prompt-category").addEventListener("input", updatePrompt);
+    $("prompt-by-chapter").addEventListener("change", updatePrompt);
+    updatePrompt();
+
+    $("btn-copy-prompt").addEventListener("click", () => {
+      copyText($("prompt-output").textContent, "已複製 Gemini 指令！");
+    });
+
+    document.querySelectorAll("[data-copy-target]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const el = $(btn.dataset.copyTarget);
+        if (el) copyText(el.textContent.trim(), "已複製範本內容！");
+      });
+    });
+  }
+
+  function updateChecklistProgress(checks) {
+    const done = checks.filter((c) => c.checked).length;
+    const pct = checks.length ? Math.round((done / checks.length) * 100) : 0;
+    $("guide-progress-bar").style.width = `${pct}%`;
+    $("guide-progress-text").textContent = `Gemini 技能安裝進度：${done} / ${checks.length} 步（${pct}%）`;
+  }
+
+  document.addEventListener("DOMContentLoaded", () => {
+    initTheme();
+    initTabs();
+    initConverter();
+    initEditorControls();
+    initValidator();
+    initLectureGenerator();
+    initPromptsAndGuide();
+  });
+})();

@@ -1,689 +1,557 @@
-<!DOCTYPE html>
-<html lang="zh-TW">
+<!doctype html>
+<html lang="zh-Hant-TW">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>ee-Class 智慧題目轉換系統 Pro 2026 | AI 題庫 & 考題檔一鍵匯入 ee-class / TronClass</title>
-  <meta name="description" content="將 Word (.docx)、Markdown 或 ChatGPT、Claude、Gemini 產生的 5 大題型考題快速轉化為 ee-Class / TronClass 標準 27 欄 CSV (支援 UTF-8 BOM 與 Big5 副本) 及 GIFT 格式。">
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ee-Class 智慧考題轉題庫整合系統 — AI-TEST-EECLASS × exam-to-qb</title>
   <link rel="stylesheet" href="style.css">
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%233b82f6'><path d='M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5'/></svg>">
 </head>
 <body>
-
-  <!-- 頂部功能列與品牌 Header -->
-  <header class="site-header">
-    <div class="header-container">
-      <!-- 第一行（最上面一行）：系統品牌標題與深淺模式切換 -->
-      <div class="header-top-row">
-        <div class="brand-wrapper">
-          <div class="brand-logo-icon">
-            <svg width="26" height="26" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
-            </svg>
-          </div>
-          <div class="brand-titles">
-            <h1>ee-Class 智慧題目轉換系統 <span class="brand-badge">Pro 2026</span></h1>
-            <p class="brand-sub">考題檔 (.docx / .md / .txt) &rarr; ee-Class (UTF-8 / Big5 / GIFT) 5 大題型一鍵轉換</p>
+  <header class="topbar">
+    <div class="topbar-inner">
+      <div class="topbar-row">
+        <div class="brand">
+          <div class="brand-mark" aria-hidden="true">題</div>
+          <div>
+            <h1>ee-Class 考題<span class="red">變</span>題庫 <span class="brand-pill">整合強化版</span></h1>
+            <p>融合 AI-TEST-EECLASS × Tools_QB · 支援 Word / Excel / PDF / 照片 / NotebookLM 自由排版 → 27 欄 CSV (UTF-8 / Big5) 與 GIFT</p>
           </div>
         </div>
-
-        <div class="header-top-right">
-          <button id="btn-theme-toggle" class="btn btn-icon-only" title="切換深淺模式">
-            <svg width="19" height="19" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 9H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"></path>
-            </svg>
-          </button>
+        <div class="btn-row">
+          <button id="btn-theme" class="btn btn-sm" type="button">🌙 暗色</button>
         </div>
       </div>
 
-      <!-- 第二行：即時數據指標與匯出按鈕列 -->
-      <div class="header-bottom-row">
-        <!-- 即時數據徽章 (支援 5 大題型) -->
-        <div class="header-stats">
-          <div class="stat-pill stat-strict" id="stat-strict-badge" title="嚴格防呆檢核模式啟用中：全方位檢核，阻擋錯誤題目匯出，確保 100% 零瑕疵">
-            <span class="status-dot-pulse"></span> 🛡️ 嚴格防呆
-          </div>
-          <div class="stat-pill stat-total" title="總題數">
-            總題數: <strong id="stat-total">0</strong>
-          </div>
-          <div class="stat-pill stat-tf" title="是非題數">
-            是非: <strong id="stat-tf">0</strong>
-          </div>
-          <div class="stat-pill stat-single" title="單選題數">
-            單選: <strong id="stat-single">0</strong>
-          </div>
-          <div class="stat-pill stat-multi" title="複選題數">
-            複選: <strong id="stat-multi">0</strong>
-          </div>
-          <div class="stat-pill stat-fill" title="填充題數">
-            填充: <strong id="stat-fill">0</strong>
-          </div>
-          <div class="stat-pill stat-essay" title="問答題數">
-            問答: <strong id="stat-essay">0</strong>
-          </div>
-          <div class="stat-pill stat-warning" id="stat-warning" style="display: none;">
-            ⚠️ 待修正: <strong>0</strong>
-          </div>
-        </div>
-
-        <!-- 快捷操作與匯出按鈕 -->
-        <div class="header-actions">
-          <button id="btn-export-csv" class="btn btn-success" title="匯出 ee-Class 官方標準 CSV (Version 4 規範, 27 欄逗號分隔, UTF-8 with BOM)">
-            <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
-            </svg>
-            📥 匯出 ee-class CSV
-          </button>
-
-          <button id="btn-export-big5" class="btn btn-amber" title="匯出 Big5 副本 CSV (CP950 編碼, 附符號等義修復, 舊測驗系統專用)">
-            <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
-            </svg>
-            📑 匯出 Big5 副本
-          </button>
-
-          <button id="btn-export-gift" class="btn btn-purple" title="匯出 GIFT 格式 (.gift)">
-            <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v13m0-13V6a2 2 0 112 2h-2zm0 0V5.5A2.5 2.5 0 109.5 8H12zm-7 4h14M5 12a2 2 0 110-4h14a2 2 0 110 4M5 12v7a2 2 0 002 2h10a2 2 0 002-2v-7"></path>
-            </svg>
-            🎁 匯出 GIFT
-          </button>
-        </div>
-      </div>
+      <nav class="nav-tabs" role="tablist" aria-label="系統主要分頁">
+        <button class="nav-tab" role="tab" type="button" data-tab="converter" aria-selected="true">📝 1. 全格式匯入與解析</button>
+        <button class="nav-tab" role="tab" type="button" data-tab="editor" aria-selected="false">✏️ 2. 題目編輯與匯出 <span id="nav-editor-count" class="tab-count">0</span></button>
+        <button class="nav-tab" role="tab" type="button" data-tab="validator" aria-selected="false">🔍 3. CSV 驗收與 Big5</button>
+        <button class="nav-tab" role="tab" type="button" data-tab="prompts" aria-selected="false">💡 4. AI 出題提示詞</button>
+        <button class="nav-tab" role="tab" type="button" data-tab="guide" aria-selected="false">📖 5. 安裝與 ee-Class 教學</button>
+      </nav>
     </div>
   </header>
 
-  <!-- 主工作區 -->
-  <main class="main-wrapper">
-    <!-- 導覽頁籤 -->
-    <div class="nav-tabs-wrapper">
-      <ul class="nav-tabs">
-        <li>
-          <button class="tab-btn active" data-tab="parser">
-            <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
-            </svg>
-            1. 考題檔抽取與貼上解析
-          </button>
-        </li>
-        <li>
-          <button class="tab-btn" data-tab="editor">
-            <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
-            </svg>
-            2. 題目預覽與編輯 (5 大題型)
-            <span class="tab-badge" id="tab-badge-count">0</span>
-          </button>
-        </li>
-        <li>
-          <button class="tab-btn tab-highlight" data-tab="manual">
-            <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path>
-            </svg>
-            3. 匯入格式規範手冊 (27 欄)
-          </button>
-        </li>
-        <li>
-          <button class="tab-btn" data-tab="prompts">
-            <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"></path>
-            </svg>
-            4. AI 出題與轉題庫提示詞 (Tools_QB 升級版)
-          </button>
-        </li>
-        <li>
-          <button class="tab-btn" data-tab="guide">
-            <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-            </svg>
-            5. ee-Class 匯入步驟說明
-          </button>
-        </li>
-      </ul>
-    </div>
-
-    <!-- ==================== TAB 1: 貼上 AI 題目與智能解析 ==================== -->
-    <section id="tab-parser" class="tab-content active">
-      <div class="parser-layout">
-        <!-- 左側主輸入區塊 -->
-        <div class="glass-panel input-card">
-          <!-- 檔案拖曳上傳區 (Tools_QB 核心升級) -->
-          <div class="upload-dropzone" id="upload-dropzone">
-            <input type="file" id="file-uploader" style="display:none;" accept=".docx,.txt,.md,.csv,.tsv">
-            <div class="dropzone-inner">
-              <div class="dropzone-icon">
-                <svg width="24" height="24" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
-                </svg>
-              </div>
-              <div class="dropzone-title">📁 拖曳考題檔至此，或點擊選取檔案上傳</div>
-              <div class="dropzone-desc">免手動複製貼上！自動由 Word 檔直接抽取段落純文字並進行智慧解析</div>
-              <div class="dropzone-formats">
-                <span class="format-pill">Word (.docx)</span>
-                <span class="format-pill">純文字 (.txt)</span>
-                <span class="format-pill">Markdown (.md)</span>
-                <span class="format-pill">CSV (.csv)</span>
-              </div>
-            </div>
+  <main class="container">
+    <!-- ==================== TAB 1：全格式匯入與解析 ==================== -->
+    <section id="tab-converter" class="tab-panel" role="tabpanel">
+      <div class="card">
+        <div class="card-header">
+          <h2 class="card-title"><span class="step-badge">1</span> 匯入任何形態考題（支援離線雙段解析 ＋ Gemini AI 多模態）</h2>
+          <div class="btn-row">
+            <button id="btn-load-sample" class="btn btn-sm btn-accent" type="button">✨ 官方 9 題範例</button>
+            <button id="btn-load-sdgs" class="btn btn-sm btn-purple" type="button">🌿 SDGs 自由格式範例</button>
+            <button id="btn-load-env" class="btn btn-sm" type="button">🧪 環微 5 題型多章節</button>
+            <button id="btn-clear-input" class="btn btn-sm" type="button">清空</button>
           </div>
+        </div>
 
-          <!-- 全域題庫類別設定列 -->
-          <div class="global-category-bar">
-            <div class="category-input-group">
-              <label for="global-category-input">🏷️ 全域題庫類別 / 所屬章節：</label>
-              <input type="text" id="global-category-input" placeholder="例如：單元一：環境微生物學基礎（選填，可一鍵套用）">
-            </div>
-            <button id="btn-apply-global-cat" class="btn btn-secondary" title="將此類別套用到目前所有題目">
-              套用到全部題目
-            </button>
+        <div id="drop-zone" class="drop-zone" tabindex="0" role="button" aria-label="上傳考題檔案">
+          <strong>拖放任何形態考題檔到這裡，或點此選擇檔案</strong>
+          <div class="format-pills">
+            <span class="format-pill">PDF（文字版離線直讀）</span>
+            <span class="format-pill">Word (.docx 含表格)</span>
+            <span class="format-pill">Excel (.xlsx)</span>
+            <span class="format-pill">純文字 / Markdown (.txt/.md)</span>
+            <span class="format-pill">CSV 表格 / 備份 (.csv/.json)</span>
+            <span class="format-pill ai">掃描 PDF / 考卷照片（AI）</span>
           </div>
+          <small class="muted">舊版 .doc / .xls 請先另存為 .docx / .xlsx；若上傳 ee-Class 27 欄 CSV 將自動進入「CSV 驗收」分頁</small>
+          <input id="file-input" type="file" accept=".pdf,application/pdf,.docx,.xlsx,.png,.jpg,.jpeg,.webp,.txt,.md,.tsv,.csv,.json" hidden>
+        </div>
 
-          <div class="card-title-row">
-            <h2>
-              <svg width="22" height="22" fill="none" stroke="#60a5fa" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path>
-              </svg>
-              原始題目文字編輯區 (支援 5 大題型：是非、單選、複選、填充、問答)
-            </h2>
-            <div class="input-helpers">
-              <button id="btn-auto-normalize" class="btn btn-secondary" title="【第一階段】將非標準自由排版題目（如SDGs、括號答案、併排選項、底線填空）一鍵重構調整為期待格式" style="background: linear-gradient(135deg, rgba(168, 85, 247, 0.2), rgba(59, 130, 246, 0.2)); border: 1px solid rgba(168, 85, 247, 0.4); color: #e9d5ff;">
-                🪄 自由格式智慧重構
-              </button>
-              <button id="btn-load-sdgs-sample" class="btn btn-secondary" title="載入真實非標準排版的 SDGs 永續發展測驗題庫，體驗智慧重構與二段式修正">
-                🌿 載入 SDGs 自由題庫
-              </button>
-              <button id="btn-load-sample" class="btn btn-secondary" title="載入 5 大題型綜合範例題庫">
-                📚 載入 5 大題型範例
-              </button>
-              <button id="btn-goto-manual" class="btn btn-secondary" title="查閱完整匯入格式規範手冊與常見錯誤對照">
-                📖 規範手冊
-              </button>
-              <button id="btn-clear-input" class="btn btn-secondary" title="清空文字">
-                🧹 清空
-              </button>
-            </div>
+        <div id="file-status" class="alert" style="margin-top:0.8rem" hidden></div>
+
+        <div class="grid-2" style="margin-top:0.95rem">
+          <div>
+            <label class="field-label" for="default-category">全域類別 / 章節（第 2 欄，選填；若原稿分章節可留空自動辨識）</label>
+            <input id="default-category" type="text" placeholder="例如：資訊安全、單元一：環境微生物學">
           </div>
-
-          <div class="textarea-container">
-            <textarea id="raw-quiz-input" class="quiz-textarea" placeholder="直接在此貼上 AI 生成的題目或 Word 檔文字！
-支援是非題、單選題、複選題、填充題與問答題：
-
-一、是非題
-1. 細菌屬於原核生物。
-答案：O
-解析：細菌無成形細胞核。
-
-二、單選題
-1. 下列何者能行光合作用？
-(A) 藍綠菌 (B) 酵母菌 (C) 原蟲 (D) 病毒
-答案：A
-
-三、複選題
-1. 下列哪些為主要溫室氣體？
-(A) CO2 (B) N2 (C) CH4 (D) N2O
-答案：A, C, D
-
-四、填充題
-1. 大氣中造成暖化的三大氣體為二氧化碳、[*甲烷*]與[*氧化亞氮*]。
-答案：甲烷, 氧化亞氮
-
-五、問答題
-1. 請簡述急救五步驟。
-答案：沖脫泡蓋送"></textarea>
-          </div>
-
-          <div class="textarea-footer">
-            <div class="footer-stats">
-              字數統計: <span id="input-char-count">0 字</span>
-              <span class="footer-strict-tag"><span class="status-dot-pulse"></span> 嚴格防呆檢核中 (零瑕疵匯出保證)</span>
-            </div>
-            <div class="action-buttons">
-              <button id="btn-parse-text" class="btn btn-primary btn-lg" style="padding: 0.65rem 1.75rem; font-size: 1rem;">
-                🚀 立即智慧解析並預覽
-              </button>
+          <div>
+            <label class="field-label">解析引擎模式</label>
+            <div class="mode-switch">
+              <label class="mode-option">
+                <input type="radio" name="parse-mode" value="offline" checked>
+                <div>
+                  <b>⚡ 離線雙段智慧解析</b>
+                  <span>免 API Key · 支援 PDF、Word、Excel、NotebookLM</span>
+                </div>
+              </label>
+              <label class="mode-option">
+                <input type="radio" name="parse-mode" value="gemini">
+                <div>
+                  <b>✨ Gemini AI 全能解析</b>
+                  <span>支援 PDF、考卷照片、任意混亂版面（需 API Key）</span>
+                </div>
+              </label>
             </div>
           </div>
         </div>
 
-        <!-- 右側輔助指南 -->
-        <aside class="glass-panel guide-card">
-          <!-- 嚴格檢核防呆公告卡片 -->
-          <div class="strict-banner-box">
-            <div class="strict-badge">
-              <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path></svg>
-              Tools_QB 架構 5 大題型全面支援
-            </div>
-            <p>已整合 <strong>是非、單選、複選、填充、問答</strong> 5 大題型！支援直接從 <strong>Word (.docx)</strong> 考題檔拖曳匯入，並可一併輸出 <strong>UTF-8 BOM</strong> 與 <strong>Big5 副本</strong>！</p>
-            <button id="btn-guide-to-manual" class="btn btn-outline btn-sm btn-block" style="width: 100%; margin-top: 0.6rem;">
-              📚 查看 27 欄格式規範手冊
-            </button>
-          </div>
-
-          <h3 style="margin-top: 1rem;">
-            <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-            </svg>
-            題型格式速查
-          </h3>
-
-          <div class="format-example-box"><strong>✨ 複選題範例 (Type 3)：</strong>
-1. 下列哪些屬於原核生物？
-(A) 細菌 (B) 酵母菌 (C) 古菌 (D) 藻類
-答案：(A)(C) 或 A, C
-解析：細菌與古菌皆為原核生物。</div>
-
-          <div class="format-example-box"><strong>✨ 填充題範例 (Type 4)：</strong>
-1. 台灣最高峰為[*玉山*]，海拔高度約[*3952*]公尺。
-答案：玉山, 3952
-（題幹中以 [*空格答案*] 內嵌，系統自動拆解）</div>
-
-          <div class="format-example-box"><strong>✨ 問答題範例 (Type 5)：</strong>
-1. 請簡述急救五步驟？
-答案：沖脫泡蓋送。</div>
-
-          <ul class="guide-feature-list">
-            <li>
-              <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
-              支援 Word (.docx) 直接拖曳免打字
-            </li>
-            <li>
-              <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
-              自動處理章節與題目類別 (Category)
-            </li>
-            <li>
-              <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
-              雙編碼：UTF-8 BOM (新版) + Big5 (舊版)
-            </li>
-            <li>
-              <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
-              自動嚴格檢核答案與格式合規性
-            </li>
-          </ul>
-        </aside>
-      </div>
-    </section>
-
-    <!-- ==================== TAB 2: 題目預覽與編輯區 ==================== -->
-    <section id="tab-editor" class="tab-content">
-      <!-- 二段式人機協同核對與校正提示列 (Two-Stage Workflow Confirmation Banner) -->
-      <div id="stage2-workflow-banner" class="glass-panel stage2-workflow-banner">
-        <div class="stage2-banner-icon">🪄</div>
-        <div class="stage2-banner-info">
-          <div class="stage2-banner-title">
-            <strong>二段式修正進行中：第二階段（人機協同手動核對與確認）</strong>
-            <span id="stage2-norm-badge" class="badge-auto-normalized">系統已自動調整至期待格式</span>
-          </div>
-          <div class="stage2-banner-desc" id="stage2-banner-desc">
-            系統第一階段已智慧辨識自由題庫並自動調整題型與答案。請在下方卡片中快速瀏覽確認；如需微調答案、選項或題型，可直接點擊卡片修改，零瑕疵確認後即可安心匯出！
-          </div>
-        </div>
-        <div class="stage2-banner-actions">
-          <button id="btn-filter-auto-normalized" class="btn btn-secondary btn-sm" title="僅查看經系統第一階段智慧規格化自動調整的題目">
-            🔍 僅篩選智慧調整題目 (<span id="stage2-norm-count">0</span>)
-          </button>
-        </div>
-      </div>
-
-      <!-- 編輯器工具列 -->
-      <div class="glass-panel editor-toolbar">
-        <div class="filter-group">
-          <button class="filter-pill active" data-filter="all">全部題目</button>
-          <button class="filter-pill" data-filter="tf">是非題</button>
-          <button class="filter-pill" data-filter="single">單選題</button>
-          <button class="filter-pill" data-filter="multi">複選題</button>
-          <button class="filter-pill" data-filter="fill">填充題</button>
-          <button class="filter-pill" data-filter="essay">問答題</button>
-          <button class="filter-pill filter-pill-norm" data-filter="normalized" id="pill-filter-normalized">🪄 智慧規格化 (<span id="norm-filter-badge-count">0</span>)</button>
-          <button class="filter-pill" data-filter="warning">待修正 (未設答案)</button>
-        </div>
-
-        <div class="search-box-wrapper">
-          <svg class="search-icon" width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
-          </svg>
-          <input type="text" id="search-questions-input" class="search-input" placeholder="搜尋題幹、選項、解析或類別關鍵字...">
-        </div>
-
-        <div class="font-size-adjuster" id="font-size-adjuster" title="調整題目的字型大小 (點擊切換)">
-          <span class="font-size-label">
-            <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5h12M9 5v14m8-7h4m-2-3.5v7"></path>
-            </svg>
-            字級：
-          </span>
-          <div class="font-size-btn-group">
-            <button type="button" class="btn-font-size" data-size="sm" title="小字級 (16px)">小</button>
-            <button type="button" class="btn-font-size active" data-size="md" title="標準字級 (18px) - 推薦舒適閱讀">標準</button>
-            <button type="button" class="btn-font-size" data-size="lg" title="大字級 (21px) - 清晰易讀">大</button>
-            <button type="button" class="btn-font-size" data-size="xl" title="特大字級 (24px) - 長輩/投影片友善">特大</button>
-          </div>
-        </div>
-
-        <div class="editor-actions">
-          <button id="btn-add-question" class="btn btn-primary btn-sm" title="手動新增一道自訂題目">
-            <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
-            </svg>
-            新增一道題
-          </button>
-          <button id="btn-clear-questions" class="btn btn-secondary btn-sm btn-clear-all" title="清空當前所有題目">
-            <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
-            </svg>
-            清空題目
-          </button>
-        </div>
-      </div>
-
-      <!-- 題目清單容器 -->
-      <div id="questions-container" class="questions-container">
-        <!-- 由 JavaScript 動態生成卡片 -->
-      </div>
-
-      <!-- 空狀態提示 -->
-      <div id="empty-state" class="glass-panel empty-state" style="display: none;">
-        <div class="empty-state-icon">📝</div>
-        <h3>目前沒有符合條件的題目</h3>
-        <p>請至「考題檔抽取與貼上解析」分頁貼上題目內容或拖入 Word 考題檔，或點擊上方「新增一道題」進行編輯。</p>
-      </div>
-    </section>
-
-    <!-- ==================== TAB 3: 匯入格式規範手冊 (重要) ==================== -->
-    <section id="tab-manual" class="tab-content">
-      <div class="manual-container">
-        <!-- 頂部總覽橫幅 -->
-        <div class="glass-panel manual-banner">
-          <div class="manual-banner-content">
-            <span class="manual-tag">官方標準 Version 4 規範 (27 欄逗號分隔)</span>
-            <h2>📖 ee-Class / TronClass 題庫 27 欄匯入格式規範手冊</h2>
-            <p>本系統全面相容 <strong>TronClass / ee-Class 官方 Version 4 題庫規範</strong>。第一行為 <code>version: 4</code> 搭配 26 個空逗號，整份檔案嚴格維持 27 欄逗號分隔標準結構，並實施嚴格防呆阻擋，確保匯入 100% 成功！</p>
-          </div>
-          <div class="manual-banner-stats">
-            <div class="rule-stat-item">
-              <span class="rule-icon">🛡️</span>
-              <div>
-                <strong>5 大題型全面支援</strong>
-                <span>是非 / 單選 / 複選 / 填充 / 問答</span>
-              </div>
-            </div>
-            <div class="rule-stat-item">
-              <span class="rule-icon">📑</span>
-              <div>
-                <strong>雙編碼雙輸出</strong>
-                <span>UTF-8 BOM (新) + Big5 (舊)</span>
-              </div>
-            </div>
-          </div>
-        <!-- 二段式修正工作流專題介紹 (Two-Stage Normalization & Review Workflow) -->
-        <div class="glass-panel rules-summary-card" style="border-left: 4px solid #a855f7;">
-          <h3 class="manual-section-title" style="color: #c084fc;">
-            🪄 二段式智慧修正工作流：自由檔案（如 SDGs 永續發展題庫）自動調整至規範格式
-          </h3>
-          <p style="color: var(--text-muted); font-size: 0.9rem; line-height: 1.6; margin-bottom: 1rem;">
-            面對老師手邊格式各異、非標準排版的自由考卷檔案（例如 Word 考卷、網路截取試題、或者如 <strong>SDGs 永續發展核心測驗題庫</strong> 常見的題首括號答案 <code>( C ) 1. 題目</code>、併排選項、底線填空等），本系統採用高效的<strong>「二段式人機協同修正機制」</strong>：
-          </p>
-          <div class="two-stage-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1rem; margin-bottom: 1rem;">
-            <div style="background: rgba(168, 85, 247, 0.08); border: 1px solid rgba(168, 85, 247, 0.25); border-radius: var(--radius-md); padding: 1.25rem;">
-              <h4 style="color: #d8b4fe; margin-bottom: 0.5rem; display: flex; align-items: center; gap: 0.5rem;">
-                <span style="background: #a855f7; color: white; border-radius: 50%; width: 24px; height: 24px; display: inline-flex; align-items: center; justify-content: center; font-size: 0.8rem;">1</span>
-                第一階段：系統自動規格化與重構調整
-              </h4>
-              <ul style="color: var(--text-muted); font-size: 0.85rem; line-height: 1.6; padding-left: 1.2rem;">
-                <li><strong>過濾試卷雜訊</strong>：自動剔除考卷標頭、姓名學號、考試時間與作答說明。</li>
-                <li><strong>自動提取類別</strong>：自標題自動辨識主旨（如 <code>永續發展目標 (SDGs)</code>）並套用為題庫類別。</li>
-                <li><strong>答案智慧抽取</strong>：自動識別題首 <code>( C ) 1.</code>、題中 <code>1. ( C )</code>、題末 <code>(對)</code>、<code>Ans: B</code> 或 <code>【答案】</code> 並提取為標準答案欄。</li>
-                <li><strong>選項自動拆分</strong>：將同行併排的 <code>(A) ... (B) ...</code> 或 <code>①②③④</code> 自動展開為規範選項。</li>
-                <li><strong>填充題標記重構</strong>：將底線 <code>_______(答案)</code> 或 <code>【答案】</code> 自動轉為標準 <code>[*答案*]</code>。</li>
-              </ul>
-            </div>
-            <div style="background: rgba(59, 130, 246, 0.08); border: 1px solid rgba(59, 130, 246, 0.25); border-radius: var(--radius-md); padding: 1.25rem;">
-              <h4 style="color: #93c5fd; margin-bottom: 0.5rem; display: flex; align-items: center; gap: 0.5rem;">
-                <span style="background: #3b82f6; color: white; border-radius: 50%; width: 24px; height: 24px; display: inline-flex; align-items: center; justify-content: center; font-size: 0.8rem;">2</span>
-                第二階段：可視化人機協同手動修正與確認
-              </h4>
-              <ul style="color: var(--text-muted); font-size: 0.85rem; line-height: 1.6; padding-left: 1.2rem;">
-                <li><strong>智慧調整醒目標識</strong>：經自動重構的題目帶有 <span class="badge-auto-normalized">🪄 智慧規格化</span> 徽章，方便重點覆核。</li>
-                <li><strong>題型一鍵即時切換</strong>：可在每題卡片透過下拉選單自由變更是非/單選/複選/填充/問答。</li>
-                <li><strong>視覺化交互修改</strong>：點擊 Radio/Checkbox 即可變更正解；填充題支援一鍵把選取字轉成空格標籤。</li>
-                <li><strong>即時防呆零阻擋保證</strong>：手動微調後即時通過嚴格檢核，點擊右上角一鍵匯出符合 ee-Class 標準的 CSV 檔！</li>
-              </ul>
-            </div>
-          </div>
-        </div>
-
-        <!-- 27 欄速查表 -->
-        <div class="glass-panel rules-summary-card">
-          <h3 class="manual-section-title">
-            <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"></path></svg>
-            ee-Class 官方 27 欄位標準定義速查表
-          </h3>
-          <div class="spec-table-wrapper">
-            <table class="spec-table">
-              <thead>
-                <tr>
-                  <th>欄號</th>
-                  <th>欄位名稱</th>
-                  <th>各題型填寫規定與說明</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr>
-                  <td><strong>Col 1</strong></td>
-                  <td>題組</td>
-                  <td>留空（題庫格式相容欄位，題庫不支援）。</td>
-                </tr>
-                <tr>
-                  <td><strong>Col 2</strong></td>
-                  <td>類別 (Category)</td>
-                  <td>選填。填寫所屬章節或分類（例如：<code>第一章 綠色能源</code>）。</td>
-                </tr>
-                <tr>
-                  <td><strong>Col 3</strong></td>
-                  <td>題型 (Type)</td>
-                  <td><code>1</code>=是非題、<code>2</code>=單選題、<code>3</code>=複選題、<code>4</code>=填充題、<code>5</code>=問答題。</td>
-                </tr>
-                <tr>
-                  <td><strong>Col 4</strong></td>
-                  <td>題目題幹 (Stem)</td>
-                  <td>題目文字。<strong>填充題</strong>需把答案內嵌為 <code>[*答案*]</code>（單題可多格）。</td>
-                </tr>
-                <tr>
-                  <td><strong>Col 5</strong></td>
-                  <td>答案 (Answer)</td>
-                  <td>
-                    是非: <code>1</code>=是 / <code>2</code>=否；<br>
-                    單選: 選項序號 <code>1~20</code>；<br>
-                    複選: 逗號相連序號 <code>"1,2,4"</code>；<br>
-                    填充: <strong>留空</strong>（答案已內嵌於題幹 <code>[*...*]</code> 中）；<br>
-                    問答: 參考答案文字。
-                  </td>
-                </tr>
-                <tr>
-                  <td><strong>Col 6</strong></td>
-                  <td>解說 (Explanation)</td>
-                  <td>題目解析或詳解文字（選填）。</td>
-                </tr>
-                <tr>
-                  <td><strong>Col 7</strong></td>
-                  <td>難易度</td>
-                  <td><code>1</code>=容易、<code>2</code>=適中、<code>3</code>=困難。</td>
-                </tr>
-                <tr>
-                  <td><strong>Col 8</strong></td>
-                  <td>選項 1</td>
-                  <td>單選/複選為選項 A 文字；<strong>填充題</strong>為大小寫比對（<code>1</code>=不分大小寫、<code>2</code>=區分大小寫）。</td>
-                </tr>
-                <tr>
-                  <td><strong>Col 9</strong></td>
-                  <td>選項 2</td>
-                  <td>單選/複選為選項 B 文字；<strong>填充題</strong>為順序比對（<code>1</code>=不考慮順序、<code>2</code>=需考慮順序）。</td>
-                </tr>
-                <tr>
-                  <td><strong>Col 10~27</strong></td>
-                  <td>選項 3 ~ 20</td>
-                  <td>單選/複選為選項 C~T 文字；其餘題型一律為空逗號。</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-        <!-- 題型規範對照 -->
-        <div class="glass-panel manual-card">
-          <div class="manual-card-header">
+        <div id="gemini-config" class="gemini-box" hidden>
+          <div class="grid-2">
             <div>
-              <span class="badge-type badge-type-3">複選題 (Type 3) 與 填充題 (Type 4) 規範</span>
-              <h3>進階題型語法規範與範本</h3>
+              <label class="field-label" for="gemini-api-key">Gemini API Key（直接連線 Google API，不經過第三方伺服器）</label>
+              <input id="gemini-api-key" type="password" autocomplete="off" placeholder="AIza...">
+              <div style="margin-top:0.35rem;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:0.5rem">
+                <label class="small" style="display:inline-flex;align-items:center;gap:0.35rem;cursor:pointer">
+                  <input id="gemini-save-key" type="checkbox"> 記住在此瀏覽器（共用電腦請勿勾選）
+                </label>
+                <a class="small" href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">取得免費 API Key →</a>
+              </div>
             </div>
-            <button class="btn btn-secondary btn-sm" data-copy-target="code-sample-advance">
-              📋 複製進階題型範本
-            </button>
+            <div>
+              <label class="field-label" for="gemini-model">選擇模型</label>
+              <select id="gemini-model">
+                <option value="gemini-2.5-flash" selected>gemini-2.5-flash（推薦，速度與準度兼顧）</option>
+                <option value="gemini-2.5-pro">gemini-2.5-pro（複雜掃描卷／高難度題組）</option>
+                <option value="__custom__">自訂模型名稱...</option>
+              </select>
+              <div id="gemini-custom-model-wrap" style="margin-top:0.4rem" hidden>
+                <input id="gemini-custom-model" type="text" placeholder="例如：gemini-2.5-flash-lite">
+              </div>
+            </div>
           </div>
+        </div>
 
-          <pre class="comp-code" id="code-sample-advance">三、複選題
-[類別：生物脫氮]
-1. 關於廢水生物脫氮，下列哪些敘述正確？
-(A) 硝化作用是由氨氧化菌與亞硝酸氧化菌共同完成
-(B) 脫氮作用主要在好氧條件下進行
-(C) 溶氧不足容易導致 N2O 溫室氣體釋放
-(D) 反硝化菌通常需要碳源
-答案：(A)(C)(D)
-解析：脫氮作用在缺氧/無氧條件下進行，因此(B)錯誤。
-難易度：困難
+        <div style="margin-top:0.95rem">
+          <div class="card-header" style="margin-bottom:0.35rem">
+            <label class="field-label" for="raw-text" style="margin:0">考題原始文字區（可直接貼上 AI 生成題目、NotebookLM 測驗、Word 考卷內容）</label>
+            <button id="btn-auto-normalize" class="btn btn-sm btn-purple" type="button" title="將非標準自由排版先轉成標準文字預覽">🪄 預覽自由格式智慧重構</button>
+          </div>
+          <textarea id="raw-text" rows="9" placeholder="貼上任何格式考題（是非/單選/複選/填充/問答），支援：&#10;• 題首答案 (C) 1. ... / 題末答案 (對)&#10;• NotebookLM 併排黏合選項 1(A)...(B)... ＋ 卷末解答表&#10;• 圓圈選項 ①②③④、底線填空 _____(答案)、【1】多格填充&#10;• 或點右上角直接體驗 3 種範例！"></textarea>
+        </div>
 
-四、填充題
-[類別：環境監測]
-1. 大氣中主要溫室氣體包含二氧化碳、[*甲烷*]與[*氧化亞氮*]。
-答案：甲烷, 氧化亞氮
-難易度：容易</pre>
+        <div class="btn-row" style="margin-top:0.9rem;justify-content:space-between">
+          <span class="small muted">🛡 機密或未授權考題請使用「⚡ 離線雙段智慧解析」，檔案完全不離開本機瀏覽器。</span>
+          <button id="btn-parse" class="btn btn-primary" type="button">🚀 開始解析考題並進入編輯器</button>
+        </div>
+
+        <div id="parse-banner" class="alert" style="margin-top:0.85rem" hidden></div>
+      </div>
+    </section>
+
+    <!-- ==================== TAB 2：題目預覽、編輯與多格式匯出 ==================== -->
+    <section id="tab-editor" class="tab-panel" role="tabpanel" hidden>
+      <div id="editor-empty" class="card" style="text-align:center;padding:2.4rem 1.5rem">
+        <h3 style="margin:0 0 0.5rem">尚未載入任何題目</h3>
+        <p class="muted" style="margin:0 0 1rem">請先到「1. 全格式匯入與解析」拖入考題檔、貼上題目或載入範例，也可以直接點下方新增空白題。</p>
+        <div class="btn-row" style="justify-content:center">
+          <button class="btn btn-primary" type="button" onclick="document.querySelector('.nav-tab[data-tab=converter]').click()">前往匯入考題</button>
+          <button class="btn" type="button" onclick="document.getElementById('btn-add-question').click()">＋ 直接新增一題</button>
+        </div>
+      </div>
+
+      <div id="editor-workspace" class="card" hidden>
+        <div class="card-header">
+          <h2 class="card-title"><span class="step-badge">2</span> 逐題核對、嚴格防呆與多格式匯出</h2>
+          <div class="btn-row">
+            <button id="btn-apply-category" class="btn btn-sm" type="button">套用全域類別至全部</button>
+            <button id="btn-add-question" class="btn btn-sm btn-accent" type="button">＋ 新增一題</button>
+            <button id="btn-clear-questions" class="btn btn-sm btn-danger-ghost" type="button">清空題目</button>
+          </div>
+        </div>
+
+        <div id="stage2-banner" class="alert alert-purple" style="margin-bottom:0.9rem" hidden></div>
+        <div id="stats-bar" class="stats-grid"></div>
+        <div id="big5-warning-box" class="alert" style="margin-bottom:0.9rem" hidden></div>
+
+        <!-- 多格式匯出列 -->
+        <div class="export-bar">
+          <div class="btn-row">
+            <button id="btn-export-utf8" class="btn btn-primary" type="button" title="ee-Class / Tools_QB 官方實測逐位元相容標準（UTF-8 無 BOM）">📥 ee-Class CSV (UTF-8)</button>
+            <button id="btn-export-utf8-bom" class="btn" type="button" title="加 UTF-8 BOM，雙擊以 Excel 開啟中文不亂碼">📥 CSV (UTF-8 BOM)</button>
+            <button id="btn-export-big5" class="btn btn-ok" type="button" title="舊版 ee-Class 專用 Big5 (CP950) 編碼，含符號等義替換">📑 Big5 (CP950)</button>
+            <button id="btn-export-gift" class="btn btn-purple" type="button" title="Moodle / ee-Class GIFT 5 大題型格式">🎁 GIFT</button>
+            <button id="btn-export-json" class="btn btn-sm" type="button" title="儲存進度，下次拖入即可還原繼續編輯">💾 JSON 備份</button>
+            <button id="btn-preview-csv" class="btn btn-sm" type="button">👁 記事本預覽</button>
+            <button id="btn-copy-csv" class="btn btn-sm" type="button">📋 複製</button>
+          </div>
+          <label class="small" style="display:inline-flex;align-items:center;gap:0.4rem;cursor:pointer">
+            <input id="chk-allow-invalid" type="checkbox"> 仍有錯誤時也允許匯出（原稿缺答案時勾選）
+          </label>
+        </div>
+
+        <!-- 篩選、搜尋、字級工具列 -->
+        <div class="editor-toolbar">
+          <div class="filter-pills">
+            <button class="filter-pill active" type="button" data-filter="all">全部</button>
+            <button class="filter-pill" type="button" data-filter="1">是非</button>
+            <button class="filter-pill" type="button" data-filter="2">單選</button>
+            <button class="filter-pill" type="button" data-filter="3">複選</button>
+            <button class="filter-pill" type="button" data-filter="4">填充</button>
+            <button class="filter-pill" type="button" data-filter="5">問答</button>
+            <button class="filter-pill" type="button" data-filter="normalized">🪄 智慧調整</button>
+            <button class="filter-pill" type="button" data-filter="issues">⚠️ 待修正/提醒</button>
+          </div>
+          <div class="toolbar-right">
+            <input id="search-questions" class="search-input" type="search" placeholder="🔍 搜尋題幹、選項或類別...">
+            <div class="font-size-group" title="調整題目閱讀字級">
+              <button type="button" class="btn-font-size" data-size="sm">小</button>
+              <button type="button" class="btn-font-size active" data-size="md">中</button>
+              <button type="button" class="btn-font-size" data-size="lg">大</button>
+              <button type="button" class="btn-font-size" data-size="xl">特大</button>
+            </div>
+          </div>
+        </div>
+
+        <div id="questions-list" class="questions-list q-font-md"></div>
+      </div>
+    </section>
+
+    <!-- ==================== TAB 3：CSV 驗收與 Big5 / GIFT 轉碼 ==================== -->
+    <section id="tab-validator" class="tab-panel" role="tabpanel" hidden>
+      <div class="card">
+        <div class="card-header">
+          <h2 class="card-title">🔍 AI 產出 CSV 驗收、修復與一鍵轉 Big5 / GIFT</h2>
+        </div>
+        <p class="muted" style="margin:0 0 1rem">
+          使用 <strong>Gemini / Claude / ChatGPT 網頁版</strong> 產出 27 欄 CSV 後，拖入或貼到這裡即可檢查 <code>version: 4</code>、每列 27 欄與逐題格式，並一鍵載入編輯器修復或直接轉存 <strong>Big5 (CP950)</strong> 與 <strong>GIFT</strong>。
+        </p>
+
+        <div id="csv-drop-zone" class="drop-zone" tabindex="0" role="button">
+          <strong>拖放 .csv 檔案到這裡，或點此選取檔案</strong>
+          <small class="muted">自動偵測 UTF-8 / Big5 編碼，完全在本機檢查，不上傳雲端</small>
+          <input id="csv-file-input" type="file" accept=".csv,.txt" hidden>
+        </div>
+
+        <div style="margin-top:0.95rem">
+          <label class="field-label" for="csv-paste-input">或貼上 AI 產出的完整 CSV 程式碼區塊</label>
+          <textarea id="csv-paste-input" class="mono" rows="7" placeholder="version: 4,,,,,,,,,,,,,,,,,,,,,,,,,,&#10;題組 (格式相容欄位，題庫不支援),..."></textarea>
+        </div>
+
+        <div class="btn-row" style="margin-top:0.8rem">
+          <button id="btn-validate-csv" class="btn btn-primary" type="button">🔍 開始驗收格式</button>
+          <button id="btn-validator-clear" class="btn" type="button">清空</button>
+        </div>
+
+        <div id="validator-result" style="margin-top:1rem" hidden>
+          <div id="validator-summary" class="alert" style="margin-bottom:0.8rem"></div>
+          <div class="btn-row" style="margin-bottom:0.85rem">
+            <button id="btn-validator-load-editor" class="btn btn-accent" type="button">✏️ 載入到編輯器修正</button>
+            <button id="btn-validator-export-utf8" class="btn" type="button">📥 下載重整 UTF-8 CSV</button>
+            <button id="btn-validator-export-big5" class="btn btn-ok" type="button">📑 一鍵轉存 Big5 (CP950)</button>
+            <button id="btn-validator-export-gift" class="btn btn-purple" type="button">🎁 轉存 GIFT (.gift)</button>
+          </div>
+          <div id="validator-issues" class="q-issues"></div>
         </div>
       </div>
     </section>
 
-    <!-- ==================== TAB 4: AI 出題提示詞 (Prompt 助手) ==================== -->
-    <section id="tab-prompts" class="tab-content">
-      <div class="prompts-grid">
-        <!-- 提示詞範本 1: Tools_QB 講義轉 5 大題型題庫 -->
-        <div class="glass-panel prompt-card">
-          <div class="prompt-card-header">
-            <div>
-              <h3>📄 講義 / Word 考卷轉成 5 大題型題庫 (Tools_QB 升級版)</h3>
-              <p>將現有教材或考卷貼給 AI，直接產出相容本系統 5 大題型的標準題庫</p>
-            </div>
-            <button class="btn btn-primary btn-sm" data-copy-target="prompt-template-1">
-              📋 一鍵複製
-            </button>
+    <!-- ==================== TAB 4：AI 出題與轉檔提示詞 ==================== -->
+    <section id="tab-prompts" class="tab-panel" role="tabpanel" hidden>
+      <!-- 升級版：講義 / PDF / Word 匯入出題工作區 -->
+      <div class="card">
+        <div class="card-header">
+          <h2 class="card-title">📄 講義 / PDF / Word 考卷轉成 5 大題型題庫 (Tools_QB 升級版)</h2>
+          <button id="btn-lecture-clear" class="btn btn-sm" type="button">清空講義</button>
+        </div>
+        <p class="small muted" style="margin:0 0 0.85rem">
+          直接拖入課程講義（<strong>PDF</strong>、<strong>Word .docx</strong>、純文字／Markdown），自動離線抽取文字並依自訂題型配比組裝提示詞，可<strong>一鍵複製貼給 Gemini / ChatGPT / Claude 網頁版出題</strong>，或直接用 <strong>Gemini API 一鍵站內出題並匯入編輯器</strong>！
+        </p>
+
+        <div id="lecture-drop-zone" class="drop-zone" tabindex="0" role="button" aria-label="上傳課程講義檔">
+          <strong>拖放課程講義檔到這裡，或點此選取檔案</strong>
+          <div class="format-pills">
+            <span class="format-pill">PDF 講義（文字版離線抽字 / 掃描版 AI 直讀）</span>
+            <span class="format-pill">Word 講義 (.docx)</span>
+            <span class="format-pill">純文字 / Markdown (.txt / .md)</span>
           </div>
-          <pre class="prompt-code-block" id="prompt-template-1">請將以下提供的【課程講義 / 考卷內容】轉化為標準題庫格式。
-請包含是非題、單選題、複選題與填充題：
-
-要求規範：
-1. 頂部標註【類別：章節或主題名稱】。
-2. 是非題：答案請寫「答案：O」或「答案：X」。
-3. 單選題：每題 4 個選項 (A)(B)(C)(D)，標註「答案：A」。
-4. 複選題：選項 (A)(B)(C)(D)，答案寫「答案：(A)(C)」或「答案：A, C」。
-5. 填充題：題幹中挖空格處請直接寫為 [*標準答案*]，例如「地球約有[*70%*]為海洋」。
-6. 每題請標註解析與難易度（容易/適中/困難）。
-
-【課程教材內容】：
-（請在此處貼上教材內容或考題）</pre>
+          <input id="lecture-file-input" type="file" accept=".pdf,application/pdf,.docx,.txt,.md" hidden>
         </div>
 
-        <!-- 提示詞範本 2: 大學專業課程自動命題 -->
-        <div class="glass-panel prompt-card">
-          <div class="prompt-card-header">
-            <div>
-              <h3>🎓 大學專業課程 AI 全方位出題 (期中期末考題型配比)</h3>
-              <p>自動按配比出是非 5 題、單選 10 題、複選 5 題、填充 5 題</p>
-            </div>
-            <button class="btn btn-primary btn-sm" data-copy-target="prompt-template-2">
-              📋 一鍵複製
-            </button>
-          </div>
-          <pre class="prompt-code-block" id="prompt-template-2">請扮演【大學專業課程命題教授】，針對主題【主題名稱】設計一份完整題庫：
-題型配比要求：
-- 是非題 5 題（答案：O 或 X）
-- 單選題 10 題（4個選項 (A)~(D)，答案：A/B/C/D）
-- 複選題 5 題（4個選項，答案：A, B）
-- 填充題 5 題（以 [*答案*] 內嵌在題幹中）
+        <div id="lecture-file-status" class="alert" style="margin-top:0.75rem" hidden></div>
 
-每題均包含：題幹、選項、答案、解析與難易度。請嚴格依序輸出。</pre>
+        <div class="grid-2" style="margin-top:0.9rem">
+          <div>
+            <label class="field-label" for="lecture-category">章節 / 題庫類別（選填，將寫入提示詞與出題結果）</label>
+            <input id="lecture-category" type="text" placeholder="例如：第三章 資訊安全與網路防護">
+          </div>
+          <div>
+            <label class="field-label">5 大題型出題配比（題數）</label>
+            <div style="display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:0.45rem">
+              <div><label class="small muted" for="lec-cnt-tf">是非</label><input id="lec-cnt-tf" type="number" min="0" max="50" value="3"></div>
+              <div><label class="small muted" for="lec-cnt-single">單選</label><input id="lec-cnt-single" type="number" min="0" max="50" value="5"></div>
+              <div><label class="small muted" for="lec-cnt-multi">複選</label><input id="lec-cnt-multi" type="number" min="0" max="50" value="2"></div>
+              <div><label class="small muted" for="lec-cnt-fill">填充</label><input id="lec-cnt-fill" type="number" min="0" max="50" value="2"></div>
+              <div><label class="small muted" for="lec-cnt-essay">問答</label><input id="lec-cnt-essay" type="number" min="0" max="50" value="1"></div>
+            </div>
+          </div>
+        </div>
+
+        <div style="margin-top:0.85rem">
+          <div class="card-header" style="margin-bottom:0.35rem">
+            <label class="field-label" style="margin:0">即時組裝的 5 大題型出題提示詞預覽</label>
+            <label class="small" style="display:inline-flex;align-items:center;gap:0.35rem;cursor:pointer">
+              <input id="lec-include-text" type="checkbox" checked> 複製時自動附上已抽取的講義全文
+            </label>
+          </div>
+          <pre id="prompt-tpl-1" class="prompt-preview"></pre>
+        </div>
+
+        <div class="btn-row" style="margin-top:0.85rem;justify-content:space-between">
+          <div class="btn-row">
+            <button id="btn-copy-lecture-prompt" class="btn btn-primary" type="button">📋 一鍵複製完整出題提示詞</button>
+            <button id="btn-ai-gen-from-lecture" class="btn btn-purple" type="button">✨ 直接用 Gemini AI 依此講義出題</button>
+          </div>
+          <span class="small muted">💡 站內 AI 出題會共用第 1 分頁填寫的 Gemini API Key（掃描講義 PDF 亦可直接出題）</span>
+        </div>
+
+        <div id="lecture-gen-banner" class="alert" style="margin-top:0.8rem" hidden></div>
+      </div>
+
+      <div class="card" style="margin-top:1rem">
+        <div class="card-header">
+          <h3 style="margin:0">🎓 大學課程期中／期末考 AI 配比命題（免講義純主題範本）</h3>
+          <button class="btn btn-sm btn-primary" type="button" data-copy-target="prompt-tpl-2">📋 複製</button>
+        </div>
+        <p class="small muted" style="margin:0 0 0.7rem">沒有講義檔案時，可直接填入主題快速依配比產生完整測驗題庫。</p>
+        <pre id="prompt-tpl-2" class="prompt-preview">請扮演【大學專業課程命題教授】，針對主題【填入主題名稱】設計一份完整測驗題庫：
+類別：【填入章節名稱】
+
+題型配比：
+- 一、是非題 5 題（答案：O 或 X）
+- 二、單選題 10 題（每題 4 個選項 (A)~(D)，答案：A/B/C/D）
+- 三、複選題 5 題（每題 4 個選項 (A)~(D)，答案：(A)(C)）
+- 四、填充題 5 題（題幹內直接以 [*答案*] 標記填空）
+- 五、問答題 2 題（附「參考答案：」）
+
+每題均包含題幹、選項、答案、解說與難易度（容易/適中/困難），並確保選項誘答具鑑別度。</pre>
+      </div>
+
+      <div class="card" style="margin-top:1rem">
+        <h3 style="margin:0 0 0.75rem">📊 ee-Class 官方 27 欄位速查表（Version 4 規範）</h3>
+        <div style="overflow-x:auto">
+          <table class="spec-table">
+            <thead>
+              <tr><th>欄號</th><th>欄位名稱</th><th>各題型填寫規定</th></tr>
+            </thead>
+            <tbody>
+              <tr><td><strong>Col 1</strong></td><td>題組</td><td>留空（題庫不支援題組）</td></tr>
+              <tr><td><strong>Col 2</strong></td><td>類別</td><td>選填，填寫章節或分類（匯入線上測驗時不支援，僅題庫分類用）</td></tr>
+              <tr><td><strong>Col 3</strong></td><td>題型</td><td><code>1</code>=是非、<code>2</code>=單選、<code>3</code>=複選、<code>4</code>=填充、<code>5</code>=問答</td></tr>
+              <tr><td><strong>Col 4</strong></td><td>題目</td><td>題幹文字；<strong>填充題</strong>須把答案內嵌為 <code>[*答案*]</code></td></tr>
+              <tr><td><strong>Col 5</strong></td><td>答案</td><td>是非: <code>1</code>是/<code>2</code>否；單選: 編號 <code>1~20</code>；複選: <code>"1,2,4"</code>；填充: <strong>留空</strong>；問答: 參考答案</td></tr>
+              <tr><td><strong>Col 6</strong></td><td>解說</td><td>題目詳解（可空）</td></tr>
+              <tr><td><strong>Col 7</strong></td><td>難易度</td><td><code>1</code>=容易、<code>2</code>=適中、<code>3</code>=困難</td></tr>
+              <tr><td><strong>Col 8</strong></td><td>選項 1</td><td>選擇題=選項 A；<strong>填充題</strong>=<code>1</code>不分大小寫 / <code>2</code>區分大小寫</td></tr>
+              <tr><td><strong>Col 9</strong></td><td>選項 2</td><td>選擇題=選項 B；<strong>填充題</strong>=<code>1</code>不考慮順序 / <code>2</code>需考慮順序</td></tr>
+              <tr><td><strong>Col 10–27</strong></td><td>選項 3–20</td><td>選擇題其餘選項；其餘題型留空</td></tr>
+            </tbody>
+          </table>
         </div>
       </div>
     </section>
 
-    <!-- ==================== TAB 5: ee-Class 匯入教學說明 ==================== -->
-    <section id="tab-guide" class="tab-content">
-      <div class="tutorial-layout">
-        <div class="glass-panel tutorial-step-card">
-          <span class="step-badge">操作流程指南</span>
-          <h3>如何匯入題目至 ee-Class / TronClass？</h3>
-          <p>ee-Class 支援 <strong>CSV (Version 4 規範)</strong> 與 <strong>GIFT</strong> 兩種標準匯入格式，本系統兩者皆提供完美支援！請依照下列步驟操作：</p>
+    <!-- ==================== TAB 5：安裝與 ee-Class 匯入教學 ==================== -->
+    <section id="tab-guide" class="tab-panel" role="tabpanel" hidden>
+      <div class="card">
+        <div class="card-header">
+          <h2 class="card-title">📖 ee-Class 匯入步驟 &amp; 網頁版 AI 外掛安裝指南</h2>
+          <a class="btn btn-sm" href="https://relerchentajen.github.io/Tools_QB/web/quickstart.html" target="_blank" rel="noopener">官方圖解頁 ↗</a>
+        </div>
 
-          <ol style="margin-left: 1.25rem; color: var(--text-muted); font-size: 0.9rem; line-height: 1.8;">
-            <li>在上方點選 <strong>「📥 匯出 ee-class CSV」</strong>（新版推薦）或 <strong>「📑 匯出 Big5 副本」</strong>（舊系統專用）或 <strong>「🎁 匯出 GIFT」</strong>。</li>
-            <li>登入學校 <strong>ee-Class / TronClass</strong> 平台，進入授課課程。</li>
-            <li>進入「測驗」&rarr; 建立測驗或進入編輯測驗。</li>
-            <li>在測驗題目編輯畫面右下角操作區，點擊 <strong>「匯入」</strong> 按鈕。</li>
-            <li>在跳出的「匯入題目」彈窗中：
-              <ul style="margin-top: 0.4rem; margin-bottom: 0.4rem;">
-                <li>若下載的是 CSV：點擊 <strong>「CSV」</strong> 圖示，並選擇下載的 <code>.csv</code> 檔案。</li>
-                <li>若下載的是 GIFT：點擊 <strong>「GIFT」</strong> 圖示，並選擇下載的 <code>.gift</code> 檔案。</li>
-              </ul>
-            </li>
-            <li>點擊上傳確認，ee-Class 將會自動將題目、題型、各選項、正確答案、難易度、類別及詳細解說完整匯入！</li>
+        <div class="subtabs" role="tablist">
+          <button class="subtab" role="tab" type="button" data-guide-tab="eeclass" aria-selected="true">🏫 ee-Class 平台匯入步驟</button>
+          <button class="subtab" role="tab" type="button" data-guide-tab="gemini" aria-selected="false">Gemini 網頁版技能安裝</button>
+          <button class="subtab" role="tab" type="button" data-guide-tab="claude" aria-selected="false">Claude 網頁版</button>
+          <button class="subtab" role="tab" type="button" data-guide-tab="chatgpt" aria-selected="false">ChatGPT 外掛／附件</button>
+        </div>
+
+        <!-- ee-Class 匯入教學 -->
+        <div id="guide-eeclass" class="guide-subpanel">
+          <ol class="checklist">
+            <li><div class="step-body"><strong>1. 在本工具第 2 分頁「題目編輯與匯出」下載匯入檔</strong><span class="small muted">新版 ee-Class / TronClass 建議優先用 <strong>ee-Class CSV (UTF-8)</strong>；若校內系統出現中文亂碼請改用 <strong>Big5 (CP950)</strong>；亦支援 <strong>GIFT (.gift)</strong>。</span></div></li>
+            <li><div class="step-body"><strong>2. 登入學校 ee-Class / TronClass 平台，進入授課課程</strong></div></li>
+            <li><div class="step-body"><strong>3. 進入「題庫」或「測驗」→ 建立／編輯測驗 → 點擊「匯入」按鈕</strong></div></li>
+            <li><div class="step-body"><strong>4. 選擇對應格式（CSV 或 GIFT）並上傳檔案</strong><span class="small muted">提醒：不要用 Excel 打開 CSV 後按儲存；匯入前請先用小份非正式考題測試一次並與原稿核對答案。</span></div></li>
           </ol>
+        </div>
+
+        <!-- Gemini 網頁版教學 -->
+        <div id="guide-gemini" class="guide-subpanel" hidden>
+          <div class="alert alert-warn" style="margin-bottom:0.9rem">
+            <strong>帳號資格提醒：</strong>Gemini 網頁版技能僅支援<strong>滿 18 歲之個人 Google 帳號</strong>（免費可用）；學校（<code>.edu.tw</code>）或公司 Workspace 帳號尚未開放，請改用本工具第 1 分頁的<strong>離線解析</strong>或 Claude 網頁版。
+          </div>
+
+          <div class="zip-compare" style="margin-bottom:0.95rem">
+            <div class="zip-box good">○ 正確：整盒上傳 exam-to-qb-gemini.zip</div>
+            <div class="zip-box bad">✕ 錯誤：先解壓縮或解壓後重壓</div>
+          </div>
+
+          <div class="progress-wrap">
+            <div style="display:flex;justify-content:space-between;align-items:center;gap:0.5rem">
+              <strong id="guide-progress-text" class="small">Gemini 技能安裝進度：0 / 7 步（0%）</strong>
+              <button id="btn-reset-checklist" class="btn btn-sm" type="button">重設進度</button>
+            </div>
+            <div class="progress-track"><div id="guide-progress-bar" class="progress-fill"></div></div>
+          </div>
+
+          <ol class="checklist">
+            <li>
+              <input type="checkbox" class="guide-check" data-step="g1">
+              <div class="step-body">
+                <strong>1. 下載 Gemini 專用手冊 ZIP（不要解壓縮）</strong>
+                <div class="btn-row">
+                  <a class="btn btn-sm btn-primary" href="https://github.com/RelerChenTajen/Tools_QB/raw/main/web/dist/exam-to-qb-gemini.zip" target="_blank" rel="noopener">⬇ exam-to-qb-gemini.zip</a>
+                  <a class="btn btn-sm" href="https://github.com/RelerChenTajen/Tools_QB/raw/main/sample.docx" target="_blank" rel="noopener">⬇ sample.docx</a>
+                </div>
+              </div>
+            </li>
+            <li>
+              <input type="checkbox" class="guide-check" data-step="g2">
+              <div class="step-body">
+                <strong>2. 打開 Gemini 技能管理頁（有舊版先刪除）</strong>
+                <div class="kbd-path">
+                  <a href="https://gemini.google.com" target="_blank" rel="noopener" class="kbd">gemini.google.com ↗</a>
+                  <span class="kbd-arrow">→</span><span class="kbd">自訂 <small>Customize</small></span>
+                  <span class="kbd-arrow">→</span><span class="kbd">技能 <small>Skills</small></span>
+                </div>
+              </div>
+            </li>
+            <li>
+              <input type="checkbox" class="guide-check" data-step="g3">
+              <div class="step-body">
+                <strong>3. 上傳 ZIP 並建立啟用</strong>
+                <div class="kbd-path">
+                  <span class="kbd">建立 <small>Create</small></span><span class="kbd-arrow">→</span>
+                  <span class="kbd">上傳 <small>Upload</small></span><span class="kbd-arrow">→</span>
+                  <span class="kbd">選 ZIP</span><span class="kbd-arrow">→</span>
+                  <span class="kbd">開啟</span><span class="kbd-arrow">→</span>
+                  <span class="kbd">建立 <small>Create</small></span>
+                </div>
+              </div>
+            </li>
+            <li>
+              <input type="checkbox" class="guide-check" data-step="g4">
+              <div class="step-body">
+                <strong>4. 開「新的對話」上傳考題檔（勿同時開 Canvas 或 Deep Research）</strong>
+              </div>
+            </li>
+            <li>
+              <input type="checkbox" class="guide-check" data-step="g5">
+              <div class="step-body">
+                <strong>5. 打 <code>@</code> 選 <code>exam-to-qb</code>，再貼上以下指令</strong>
+                <div class="grid-2" style="margin-top:0.3rem">
+                  <div>
+                    <label class="field-label" for="prompt-category">類別名稱（選填）</label>
+                    <input id="prompt-category" type="text" value="資訊安全">
+                  </div>
+                  <div style="display:flex;align-items:flex-end;padding-bottom:0.4rem">
+                    <label style="display:inline-flex;align-items:center;gap:0.4rem;cursor:pointer;font-weight:700">
+                      <input id="prompt-by-chapter" type="checkbox"> 依各章節標題分類
+                    </label>
+                  </div>
+                </div>
+                <pre id="prompt-output" class="prompt-preview"></pre>
+                <div class="btn-row"><button id="btn-copy-prompt" class="btn btn-sm btn-primary" type="button">📋 複製指令</button></div>
+              </div>
+            </li>
+            <li>
+              <input type="checkbox" class="guide-check" data-step="g6">
+              <div class="step-body">
+                <strong>6. 下載 CSV（若無法下載，請貼備援指令）</strong>
+                <pre id="prompt-fallback" class="prompt-preview">請把完整 CSV 放在一個程式碼區塊</pre>
+                <div class="btn-row"><button class="btn btn-sm" type="button" data-copy-target="prompt-fallback">📋 複製備援指令</button></div>
+              </div>
+            </li>
+            <li>
+              <input type="checkbox" class="guide-check" data-step="g7">
+              <div class="step-body">
+                <strong>7. 回到本頁第 3 分頁「🔍 CSV 驗收與 Big5」檢查並轉檔！</strong>
+              </div>
+            </li>
+          </ol>
+
+          <h3 style="margin:1.2rem 0 0.6rem">常見問題排錯</h3>
+          <details class="faq">
+            <summary>第一列不是 <code>version: 4</code>，或匯入失敗？</summary>
+            <p>代表技能未生效：請刪除舊技能重新上傳 <code>exam-to-qb-gemini.zip</code> 建立，開新對話以 <code>@exam-to-qb</code> 執行，勿開 Canvas / Deep Research。</p>
+          </details>
+          <details class="faq">
+            <summary>回覆「不支援執行程式或腳本」？</summary>
+            <p>代表誤裝了 Claude/ChatGPT 用的 <code>exam-to-qb.zip</code>，請刪除並改上傳 <code>exam-to-qb-gemini.zip</code>。</p>
+          </details>
+          <details class="faq">
+            <summary>產出的是 Google 試算表或 Excel？</summary>
+            <p>回覆「請改成純文字 CSV 檔」或「請把完整 CSV 放在一個程式碼區塊」，再貼到本工具第 3 分頁驗證下載。</p>
+          </details>
+        </div>
+
+        <!-- Claude -->
+        <div id="guide-claude" class="guide-subpanel" hidden>
+          <ol class="checklist">
+            <li><div class="step-body"><strong>1. 下載完整技能包（含 build.py，不要解壓）</strong><div class="btn-row"><a class="btn btn-sm btn-primary" href="https://github.com/RelerChenTajen/Tools_QB/raw/main/web/dist/exam-to-qb.zip" target="_blank" rel="noopener">⬇ exam-to-qb.zip</a></div></div></li>
+            <li><div class="step-body"><strong>2. 開啟程式碼執行</strong><div class="kbd-path"><span class="kbd">Settings</span><span class="kbd-arrow">→</span><span class="kbd">Capabilities</span><span class="kbd-arrow">→</span><span class="kbd">Code execution and file creation</span></div></div></li>
+            <li><div class="step-body"><strong>3. 上傳技能</strong><div class="kbd-path"><span class="kbd">Customize</span><span class="kbd-arrow">→</span><span class="kbd">Skills</span><span class="kbd-arrow">→</span><span class="kbd">＋</span><span class="kbd-arrow">→</span><span class="kbd">Create skill</span><span class="kbd-arrow">→</span><span class="kbd">Upload a skill</span></div></div></li>
+            <li>
+              <div class="step-body">
+                <strong>4. 開新對話附上考題並貼上</strong>
+                <pre id="prompt-claude" class="prompt-preview">請使用 exam-to-qb 技能，把附件轉成題庫 CSV，類別填「資訊安全」，並產生 Big5 版。</pre>
+                <div class="btn-row"><button class="btn btn-sm btn-primary" type="button" data-copy-target="prompt-claude">📋 複製</button></div>
+              </div>
+            </li>
+          </ol>
+        </div>
+
+        <!-- ChatGPT -->
+        <div id="guide-chatgpt" class="guide-subpanel" hidden>
+          <ol class="checklist">
+            <li><div class="step-body"><strong>1. 下載 2 個檔案（不要解壓 ZIP）</strong><div class="btn-row"><a class="btn btn-sm btn-primary" href="https://github.com/RelerChenTajen/Tools_QB/raw/main/web/dist/exam-to-qb.zip" target="_blank" rel="noopener">⬇ exam-to-qb.zip</a><a class="btn btn-sm" href="https://github.com/RelerChenTajen/Tools_QB/raw/main/sample.docx" target="_blank" rel="noopener">⬇ sample.docx</a></div></div></li>
+            <li>
+              <div class="step-body">
+                <strong>2. 到 ChatGPT Work 附上兩個檔案，打 <code>@Plugin Creator</code> 並貼上</strong>
+                <pre id="prompt-gpt-create" class="prompt-preview">請將我上傳的 Skill ZIP 封裝成私人外掛，顯示名稱為「考題轉題庫 CSV」。
+SKILL.md、Python 腳本和 header.csv 請原封不動保留，不要改寫、精簡或重新產生。
+建立前請用 sample.docx 實際執行轉換，確認能輸出 UTF-8 無 BOM 與 Big5（CP950）兩版 CSV。
+建立後請提供外掛連結。</pre>
+                <div class="btn-row"><button class="btn btn-sm btn-primary" type="button" data-copy-target="prompt-gpt-create">📋 複製封裝指令</button></div>
+              </div>
+            </li>
+            <li>
+              <div class="step-body">
+                <strong>3. 安裝後每次開新對話打 <code>@考題轉題庫 CSV</code> 並送出</strong>
+                <pre id="prompt-gpt-use" class="prompt-preview">請將上傳的考題轉成 27 欄題庫 CSV，類別填「資訊安全」。請實際執行 build.py，並提供 UTF-8 無 BOM 與 Big5（CP950）兩個版本的下載檔。</pre>
+                <div class="btn-row"><button class="btn btn-sm" type="button" data-copy-target="prompt-gpt-use">📋 複製使用指令</button></div>
+              </div>
+            </li>
+          </ol>
+        </div>
+      </div>
+
+      <div class="card" style="margin-top:1rem">
+        <h3 style="margin:0 0 0.7rem">🛡 資料安全提醒（這些不要上傳到雲端 AI）</h3>
+        <div class="safety-strip">
+          <div class="safety-item">🚫 沒有授權的正式考題</div>
+          <div class="safety-item">🚫 學生個資</div>
+          <div class="safety-item">🚫 系統密碼與金鑰</div>
         </div>
       </div>
     </section>
   </main>
 
-  <!-- 檢核防呆診斷彈出視窗 (Modal) -->
-  <div id="diagnostics-modal" class="modal-overlay" style="display: none;">
-    <div class="glass-panel modal-card">
-      <div class="modal-header">
-        <div class="modal-title-group">
-          <div class="modal-alert-icon">🛡️</div>
-          <div>
-            <h3>嚴格防呆檢核未通過：已阻擋匯出</h3>
-            <p>為避免匯入 ee-Class 後題型錯亂或計分錯誤，請先修正以下項目：</p>
-          </div>
-        </div>
-        <div class="modal-badges" style="display: flex; align-items: center; gap: 0.5rem;">
-          <span class="badge-error" id="modal-err-count">0 項錯誤阻擋</span>
-          <span class="badge-warn" id="modal-warn-count">0 項建議</span>
-          <button id="modal-btn-close-x" class="btn-icon" title="關閉視窗" style="font-size: 1.25rem; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; border-radius: var(--radius-full); background: rgba(255,255,255,0.08); border: 1px solid var(--border-glass); color: var(--text-main); cursor: pointer;">&times;</button>
-        </div>
+  <!-- 記事本預覽視窗 -->
+  <div id="csv-modal" class="modal-backdrop" hidden>
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+      <div class="modal-head">
+        <strong id="modal-title">📄 記事本原始 CSV 預覽（請確認第一列為 version: 4）</strong>
+        <button id="btn-close-modal" class="btn btn-sm" type="button">關閉</button>
       </div>
-
       <div class="modal-body">
-        <div class="modal-issues-list" id="modal-issues-list">
-          <!-- 由 JS 動態生成診斷條目 -->
-        </div>
+        <pre id="csv-preview-text"></pre>
       </div>
-
-      <div class="modal-footer">
-        <button id="modal-btn-go-editor" class="btn btn-primary">
-          <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>
-          🛠️ 前往編輯器修正問題題目
-        </button>
-        <button id="modal-btn-manual" class="btn btn-secondary">
-          <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path></svg>
-          📖 查閱格式規範手冊
-        </button>
-        <button id="modal-btn-dismiss" class="btn btn-ghost">關閉</button>
+      <div class="modal-foot">
+        <span class="small muted">27 欄標準格式 · UTF-8 無 BOM · CRLF 換行</span>
+        <button id="btn-modal-copy" class="btn btn-sm btn-primary" type="button">📋 複製全部 CSV</button>
       </div>
     </div>
   </div>
 
-  <!-- Toast 訊息通知容器 -->
-  <div id="toast-container" class="toast-container"></div>
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
-  <!-- 載入核心模組與主程式腳本 -->
-  <script src="jszip.min.js"></script>
-  <script src="big5-encoder.js"></script>
-  <script src="parser.js"></script>
-  <script src="exporter.js"></script>
+  <script src="lib/pdf.min.js"></script>
+  <script src="lib/pdf.worker.min.js"></script>
+  <script src="core.js"></script>
   <script src="app.js"></script>
 </body>
 </html>
